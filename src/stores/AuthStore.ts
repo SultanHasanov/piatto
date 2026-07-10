@@ -121,8 +121,12 @@ export class AuthStore {
   }
 
   async signOut() {
-    runInAction(() => { this.offlineUnlocked = false })
+    runInAction(() => {
+      this.offlineUnlocked = false
+      this.session = null
+      this.error = null
+    })
     if (!supabase) return
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined)
   }
 }

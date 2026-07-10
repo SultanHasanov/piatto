@@ -3,6 +3,7 @@ import { CartStore } from './CartStore'
 import { SyncStore } from './SyncStore'
 import { loadAppState, loadCart, requestPersistentStorage } from '../db/localDb'
 import { AuthStore } from './AuthStore'
+import { warmImageCache } from '../utils/imageCache'
 
 export class RootStore {
   data: DataStore
@@ -21,5 +22,8 @@ export class RootStore {
 export async function createRootStore(): Promise<RootStore> {
   const [state, cartLines] = await Promise.all([loadAppState(), loadCart()])
   void requestPersistentStorage()
-  return new RootStore(new DataStore(state), new CartStore(cartLines), new AuthStore())
+  const rootStore = new RootStore(new DataStore(state), new CartStore(cartLines), new AuthStore())
+  void warmImageCache(rootStore.data.categories, rootStore.data.products)
+  window.addEventListener('online', () => void warmImageCache(rootStore.data.categories, rootStore.data.products))
+  return rootStore
 }

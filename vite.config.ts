@@ -67,6 +67,26 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/images\.unsplash\.com\//i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'piatto-images-v1',
+              cacheableResponse: { statuses: [0, 200] },
+              expiration: { maxEntries: 250, maxAgeSeconds: 60 * 60 * 24 * 90 },
+            },
+          },
+          {
+            urlPattern: /^https:\/\/[^/]+\.supabase\.co\/storage\/v1\/object\//i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'piatto-images-v1',
+              cacheableResponse: { statuses: [0, 200] },
+              expiration: { maxEntries: 250, maxAgeSeconds: 60 * 60 * 24 * 90 },
+            },
+          },
+        ],
       },
       devOptions: {
         enabled: true,
