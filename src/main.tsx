@@ -1,0 +1,35 @@
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import { ConfigProvider } from 'antd'
+import ruRU from 'antd/locale/ru_RU'
+import { registerSW } from 'virtual:pwa-register'
+import './index.css'
+import App from './App.tsx'
+import { StoreProvider } from './stores/context'
+import { createRootStore } from './stores/RootStore'
+import { AuthGate } from './components/AuthGate'
+import * as Sentry from '@sentry/react'
+
+registerSW({ immediate: true })
+
+if (import.meta.env.VITE_SENTRY_DSN) {
+  Sentry.init({
+    dsn: import.meta.env.VITE_SENTRY_DSN,
+    environment: import.meta.env.VITE_APP_ENV ?? import.meta.env.MODE,
+    sendDefaultPii: false,
+  })
+}
+
+const rootStore = await createRootStore()
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <ConfigProvider locale={ruRU} theme={{ token: { colorPrimary: '#1677ff' } }}>
+      <StoreProvider value={rootStore}>
+        <Sentry.ErrorBoundary fallback={<div className="fatal-error">Произошла ошибка приложения. Перезапустите Piatto POS и проверьте синхронизацию.</div>}>
+          <AuthGate><App /></AuthGate>
+        </Sentry.ErrorBoundary>
+      </StoreProvider>
+    </ConfigProvider>
+  </StrictMode>,
+)
