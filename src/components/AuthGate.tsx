@@ -21,8 +21,8 @@ export const AuthGate = observer(function AuthGate({ children }: Props) {
   }
 
   if (!auth.configured) return children
-  if (auth.loading && !auth.session) return <div className="auth-loading"><Spin size="large" /></div>
-  if (auth.session) return children
+  if (auth.loading && !auth.authenticated) return <div className="auth-loading"><Spin size="large" /></div>
+  if (auth.authenticated) return children
 
   return (
     <div className="auth-page">
