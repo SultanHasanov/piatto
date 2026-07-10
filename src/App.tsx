@@ -1,20 +1,23 @@
 import { lazy, Suspense, useState } from 'react'
 import { observer } from 'mobx-react-lite'
-import { Layout, Menu, Typography, Drawer, Button, Popconfirm } from 'antd'
-import { Menu as MenuIcon, Store, History, BarChart3, List, Settings, Trash2 } from 'lucide-react'
+import { Layout, Menu, Typography, Drawer, Button, Popconfirm, Badge, Tooltip } from 'antd'
+import { Menu as MenuIcon, Store, History, BarChart3, List, Settings, Trash2, PauseCircle, Clock } from 'lucide-react'
 import { useStore } from './stores/context'
 import { PosPage } from './pages/PosPage'
+import { ParkedCartsModal } from './components/ParkedCartsModal'
 
 const HistoryPage = lazy(() => import('./pages/HistoryPage').then((module) => ({ default: module.HistoryPage })))
 const ReportsPage = lazy(() => import('./pages/ReportsPage').then((module) => ({ default: module.ReportsPage })))
 const MenuAdminPage = lazy(() => import('./pages/MenuAdminPage').then((module) => ({ default: module.MenuAdminPage })))
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then((module) => ({ default: module.SettingsPage })))
+const ShiftPage = lazy(() => import('./pages/ShiftPage').then((module) => ({ default: module.ShiftPage })))
 
 const { Header, Content } = Layout
 
-type SectionKey = 'history' | 'reports' | 'menu' | 'settings'
+type SectionKey = 'history' | 'reports' | 'menu' | 'settings' | 'shift'
 
 const menuItems = [
+  { key: 'shift', icon: <Clock size={20} />, label: 'Смена' },
   { key: 'history', icon: <History size={20} />, label: 'История' },
   { key: 'reports', icon: <BarChart3 size={20} />, label: 'Отчёты' },
   { key: 'menu', icon: <List size={20} />, label: 'Меню' },
@@ -22,6 +25,7 @@ const menuItems = [
 ]
 
 const sectionTitles: Record<SectionKey, string> = {
+  shift: 'Смена',
   history: 'История',
   reports: 'Отчёты',
   menu: 'Меню',
@@ -32,6 +36,7 @@ const App = observer(function App() {
   const { data, cart } = useStore()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [section, setSection] = useState<SectionKey | null>(null)
+  const [parkedOpen, setParkedOpen] = useState(false)
   const onPos = section === null
 
   function openSection(key: SectionKey | null) {
@@ -56,19 +61,33 @@ const App = observer(function App() {
         {onPos && (
           <div className="app-header-receipt">
             <span className="app-header-receipt-title">Чек</span>
-            {cart.lines.length > 0 && (
-              <Popconfirm
-                title="Очистить чек?"
-                description="Все добавленные товары будут удалены"
-                okText="Очистить"
-                cancelText="Отмена"
-                onConfirm={() => cart.clear()}
-              >
-                <Button danger icon={<Trash2 size={18} />}>
-                  Очистить чек
-                </Button>
-              </Popconfirm>
-            )}
+            <div className="app-header-receipt-actions">
+              {cart.parked.length > 0 && (
+                <Tooltip title="Отложенные чеки">
+                  <Badge count={cart.parked.length} size="small" offset={[-4, 4]}>
+                    <Button icon={<Clock size={18} />} onClick={() => setParkedOpen(true)} />
+                  </Badge>
+                </Tooltip>
+              )}
+              {cart.lines.length > 0 && (
+                <>
+                  <Tooltip title="Отложить чек">
+                    <Button icon={<PauseCircle size={18} />} onClick={() => cart.park()} />
+                  </Tooltip>
+                  <Popconfirm
+                    title="Очистить чек?"
+                    description="Все добавленные товары будут удалены"
+                    okText="Очистить"
+                    cancelText="Отмена"
+                    onConfirm={() => cart.clear()}
+                  >
+                    <Tooltip title="Очистить чек">
+                      <Button danger icon={<Trash2 size={18} />} />
+                    </Tooltip>
+                  </Popconfirm>
+                </>
+              )}
+            </div>
           </div>
         )}
       </Header>
@@ -77,6 +96,7 @@ const App = observer(function App() {
           <PosPage />
         </div>
         <Suspense fallback={<div className="page-loading">Загрузка…</div>}>
+          {section === 'shift' && <ShiftPage />}
           {section === 'history' && <HistoryPage />}
           {section === 'reports' && <ReportsPage />}
           {section === 'menu' && <MenuAdminPage />}
@@ -100,6 +120,8 @@ const App = observer(function App() {
           onClick={(e) => openSection(e.key === 'pos' ? null : (e.key as SectionKey))}
         />
       </Drawer>
+
+      <ParkedCartsModal open={parkedOpen} onClose={() => setParkedOpen(false)} />
     </Layout>
   )
 })

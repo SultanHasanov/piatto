@@ -1,4 +1,4 @@
-export type EntityType = 'category' | 'product' | 'modifierGroup' | 'order' | 'settings'
+export type EntityType = 'category' | 'product' | 'modifierGroup' | 'order' | 'settings' | 'shift'
 
 export interface BaseEntity {
   version?: number // серверная версия для optimistic concurrency control
@@ -65,6 +65,12 @@ export interface OrderTypeConfig {
   surcharge: number
 }
 
+export interface OrderRefund {
+  ts: string // ISO время возврата
+  amount: number
+  items: { name: string; qty: number; sum: number }[]
+}
+
 export interface Order extends BaseEntity {
   type: 'order'
   number: number
@@ -76,6 +82,8 @@ export interface Order extends BaseEntity {
   orderTypeName: string
   orderTypeSurcharge: number
   status: 'paid' | 'refunded'
+  refunds?: OrderRefund[] // частичные возвраты; status остаётся 'paid', пока не возвращено всё
+  refundedAt?: string // ISO — момент последнего (или полного) возврата
 }
 
 export interface Settings extends BaseEntity {
@@ -84,9 +92,11 @@ export interface Settings extends BaseEntity {
   paymentMethods: PaymentMethod[]
   orderTypes: OrderTypeConfig[]
   nextOrderNumber: number
+  printReceiptAfterPay?: boolean
+  playSoundOnPay?: boolean
 }
 
-export type AnyEntity = Category | ModifierGroup | Product | Order | Settings
+export type AnyEntity = Category | ModifierGroup | Product | Order | Settings | Shift
 
 export interface CartLine {
   productClientId: string
@@ -94,6 +104,57 @@ export interface CartLine {
   basePrice: number
   qty: number
   mods: OrderItemMod[]
+}
+
+// Отложенный чек намеренно остаётся локальным (для клиента, ждущего у кассы) — в Supabase не синхронизируется.
+export interface ParkedCart {
+  id: string
+  ts: string // ISO — когда отложен
+  lines: CartLine[]
+  note?: string
+}
+
+export interface CashMovement {
+  id: string
+  ts: string // ISO
+  kind: 'in' | 'out'
+  amount: number
+  note?: string
+}
+
+export interface ShiftPaymentBreakdown {
+  payment: string
+  orders: number
+  total: number
+}
+
+export interface ShiftSummary {
+  revenue: number
+  ordersCount: number
+  itemsSold: number
+  byPayment: ShiftPaymentBreakdown[]
+  refundsTotal: number
+  refundsCount: number
+  cashSalesTotal: number
+  cashRefundsTotal: number
+  cashIn: number
+  cashOut: number
+  expectedCash: number
+}
+
+export interface ShiftClosing {
+  actualCash: number
+  expectedCash: number
+  summary: ShiftSummary
+}
+
+export interface Shift extends BaseEntity {
+  type: 'shift'
+  openedAt: string // ISO
+  closedAt?: string // ISO
+  openingCash: number
+  cashMovements: CashMovement[]
+  closing?: ShiftClosing
 }
 
 export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'error' | 'local'

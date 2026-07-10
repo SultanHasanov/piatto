@@ -138,6 +138,24 @@ export const SettingsPage = observer(function SettingsPage() {
         </Form.Item>
       </Form>
 
+      <Typography.Title level={5}>Печать и звук</Typography.Title>
+      <Space direction="vertical" style={{ marginBottom: 24 }}>
+        <div className="settings-inline-option" style={{ maxWidth: 420 }}>
+          <Typography.Text strong>Печатать чек после оплаты</Typography.Text>
+          <Switch
+            checked={!!data.settings.printReceiptAfterPay}
+            onChange={(printReceiptAfterPay) => data.updateSettings({ printReceiptAfterPay })}
+          />
+        </div>
+        <div className="settings-inline-option" style={{ maxWidth: 420 }}>
+          <Typography.Text strong>Звук при оформлении заказа</Typography.Text>
+          <Switch
+            checked={data.settings.playSoundOnPay !== false}
+            onChange={(playSoundOnPay) => data.updateSettings({ playSoundOnPay })}
+          />
+        </div>
+      </Space>
+
       <Typography.Title level={5}>Синхронизация</Typography.Title>
       <Space direction="vertical" style={{ marginBottom: 24 }}>
         {!auth.configured && (

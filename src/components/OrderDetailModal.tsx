@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { observer } from 'mobx-react-lite'
 import { Button, Modal, Popconfirm, Select, Space, Tag, Typography } from 'antd'
-import { Minus, Plus, Trash2 } from 'lucide-react'
+import { Minus, Plus, Printer, Trash2 } from 'lucide-react'
 import { useStore } from '../stores/context'
-import { formatMoney, formatTime } from '../utils/format'
+import { usePrint } from '../print/PrintContext'
+import { formatDateTime, formatMoney, formatTime } from '../utils/format'
 import type { Order, OrderItem, OrderItemMod, Product } from '../types'
 import { ModifierModal } from './ModifierModal'
 
@@ -21,6 +22,10 @@ function itemTotal(item: Pick<OrderItem, 'basePrice' | 'mods' | 'qty'>) {
   return (item.basePrice + item.mods.reduce((sum, mod) => sum + mod.priceDelta, 0)) * item.qty
 }
 
+function unitPrice(item: Pick<OrderItem, 'basePrice' | 'mods'>) {
+  return item.basePrice + item.mods.reduce((sum, mod) => sum + mod.priceDelta, 0)
+}
+
 function modsKey(mods: OrderItemMod[]) {
   return JSON.stringify(
     [...mods]
@@ -31,7 +36,10 @@ function modsKey(mods: OrderItemMod[]) {
 
 export const OrderDetailModal = observer(function OrderDetailModal({ order, open, onClose }: Props) {
   const { data } = useStore()
+  const { printReceipt } = usePrint()
   const [isEditing, setIsEditing] = useState(false)
+  const [isRefunding, setIsRefunding] = useState(false)
+  const [refundQty, setRefundQty] = useState<Record<number, number>>({})
   const [items, setItems] = useState<OrderItem[]>([])
   const [modifierProduct, setModifierProduct] = useState<Product | null>(null)
   const [selectedProductId, setSelectedProductId] = useState<string>()
@@ -42,6 +50,8 @@ export const OrderDetailModal = observer(function OrderDetailModal({ order, open
     if (!open || !order) return
     setItems(cloneItems(order.items))
     setIsEditing(false)
+    setIsRefunding(false)
+    setRefundQty({})
     setModifierProduct(null)
     setSelectedProductId(undefined)
     setPayment(order.payment)
@@ -73,6 +83,16 @@ export const OrderDetailModal = observer(function OrderDetailModal({ order, open
   const editTotal = useMemo(
     () => items.reduce((sum, item) => sum + item.total, 0) + editSurcharge,
     [items, editSurcharge],
+  )
+
+  const refundTotal = useMemo(() => {
+    if (!order) return 0
+    return order.items.reduce((sum, item, index) => sum + unitPrice(item) * (refundQty[index] ?? 0), 0)
+  }, [order, refundQty])
+
+  const refundQtySum = useMemo(
+    () => Object.values(refundQty).reduce((sum, qty) => sum + qty, 0),
+    [refundQty],
   )
 
   const availableProducts = data.products.filter((product) => !product.disabled)
@@ -168,13 +188,46 @@ export const OrderDetailModal = observer(function OrderDetailModal({ order, open
     setIsEditing(false)
   }
 
-  function handleRefund() {
+  function startRefund() {
     if (!order) return
-    data.refundOrder(order.clientId)
-    setIsEditing(false)
+    const initial: Record<number, number> = {}
+    order.items.forEach((_, index) => { initial[index] = 0 })
+    setRefundQty(initial)
+    setIsRefunding(true)
+  }
+
+  function cancelRefund() {
+    setIsRefunding(false)
+    setRefundQty({})
+  }
+
+  function setRefundAll() {
+    if (!order) return
+    const all: Record<number, number> = {}
+    order.items.forEach((item, index) => { all[index] = item.qty })
+    setRefundQty(all)
+  }
+
+  function changeRefundQty(index: number, delta: number) {
+    if (!order) return
+    setRefundQty((current) => {
+      const max = order.items[index].qty
+      const next = Math.max(0, Math.min(max, (current[index] ?? 0) + delta))
+      return { ...current, [index]: next }
+    })
+  }
+
+  function confirmRefund() {
+    if (!order) return
+    const map = new Map(Object.entries(refundQty).map(([key, qty]) => [Number(key), qty]))
+    data.refundOrderItems(order.clientId, map)
+    setIsRefunding(false)
+    setRefundQty({})
   }
 
   if (!order) return null
+
+  const isFullRefundSelected = refundQtySum > 0 && order.items.every((item, index) => (refundQty[index] ?? 0) === item.qty)
 
   return (
     <>
@@ -195,6 +248,9 @@ export const OrderDetailModal = observer(function OrderDetailModal({ order, open
             <Tag color={order.status === 'paid' ? 'green' : 'red'}>
               {order.status === 'paid' ? 'Оплачен' : 'Возвращён'}
             </Tag>
+            {order.refunds && order.refunds.length > 0 && order.status === 'paid' && (
+              <Tag color="orange">Возврат части</Tag>
+            )}
           </Space>
         </div>
 
@@ -213,7 +269,7 @@ export const OrderDetailModal = observer(function OrderDetailModal({ order, open
 
         <div className="order-detail-lines">
           {(isEditing ? items : order.items).map((item, index) => (
-            <div className={`order-detail-line ${isEditing ? 'order-detail-line--editing' : ''}`} key={`${item.productClientId}-${modsKey(item.mods)}-${index}`}>
+            <div className={`order-detail-line ${isEditing || isRefunding ? 'order-detail-line--editing' : ''}`} key={`${item.productClientId}-${modsKey(item.mods)}-${index}`}>
               <div className="order-detail-name">
                 <Typography.Text strong>{item.name}</Typography.Text>
                 {item.mods.length > 0 && (
@@ -226,8 +282,24 @@ export const OrderDetailModal = observer(function OrderDetailModal({ order, open
                   <span>{item.qty}</span>
                   <Button aria-label="Увеличить количество" icon={<Plus size={16} />} onClick={() => changeQty(index, 1)} />
                 </div>
+              ) : isRefunding ? (
+                <div className="order-edit-qty">
+                  <Button
+                    aria-label="Меньше к возврату"
+                    icon={<Minus size={16} />}
+                    disabled={(refundQty[index] ?? 0) <= 0}
+                    onClick={() => changeRefundQty(index, -1)}
+                  />
+                  <span>{refundQty[index] ?? 0} / {item.qty}</span>
+                  <Button
+                    aria-label="Больше к возврату"
+                    icon={<Plus size={16} />}
+                    disabled={(refundQty[index] ?? 0) >= item.qty}
+                    onClick={() => changeRefundQty(index, 1)}
+                  />
+                </div>
               ) : (
-                <div className="order-detail-qty">{item.qty} × {formatMoney(item.basePrice + item.mods.reduce((sum, mod) => sum + mod.priceDelta, 0))}</div>
+                <div className="order-detail-qty">{item.qty} × {formatMoney(unitPrice(item))}</div>
               )}
               <div className="order-detail-price">{formatMoney(item.total)}</div>
               {isEditing && (
@@ -260,13 +332,28 @@ export const OrderDetailModal = observer(function OrderDetailModal({ order, open
           </div>
         )}
 
+        {!isEditing && !isRefunding && order.refunds && order.refunds.length > 0 && (
+          <div className="order-refunds-history">
+            <Typography.Text strong>Возвраты</Typography.Text>
+            {order.refunds.map((refund, index) => (
+              <div className="order-refund-row" key={index}>
+                <span>{formatDateTime(refund.ts)} · {refund.items.map((item) => `${item.name} ×${item.qty}`).join(', ')}</span>
+                <strong>-{formatMoney(refund.amount)}</strong>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="order-detail-total">
-          <span>Итого</span>
-          <span>{formatMoney(isEditing ? editTotal : order.total)}</span>
+          <span>{isRefunding ? 'К возврату' : 'Итого'}</span>
+          <span>{isRefunding ? formatMoney(refundTotal) : formatMoney(isEditing ? editTotal : order.total)}</span>
         </div>
 
         {order.status === 'refunded' ? (
-          <div className="order-refunded-notice">Возврат оформлен</div>
+          <div className="order-detail-footer">
+            <div className="order-refunded-notice">Возврат оформлен</div>
+            <Button icon={<Printer size={18} />} onClick={() => printReceipt(order)}>Печать чека</Button>
+          </div>
         ) : (
           <div className="order-detail-footer">
             {isEditing ? (
@@ -274,18 +361,25 @@ export const OrderDetailModal = observer(function OrderDetailModal({ order, open
                 <Button onClick={resetEditing}>Отмена</Button>
                 <Button type="primary" disabled={items.length === 0} onClick={handleSave}>Сохранить</Button>
               </>
-            ) : (
+            ) : isRefunding ? (
               <>
+                <Button onClick={cancelRefund}>Отмена</Button>
+                <Button onClick={setRefundAll}>Вернуть всё</Button>
                 <Popconfirm
-                  title="Оформить возврат?"
-                  description="Заказ будет помечен как возвращённый, товары вернутся на склад. Продолжить?"
+                  title={isFullRefundSelected ? 'Оформить полный возврат?' : 'Оформить возврат части заказа?'}
+                  description="Стоки вернутся на склад. Продолжить?"
                   okText="Оформить возврат"
                   cancelText="Отмена"
-                  okButtonProps={{ danger: true }}
-                  onConfirm={handleRefund}
+                  okButtonProps={{ danger: true, disabled: refundQtySum === 0 }}
+                  onConfirm={confirmRefund}
                 >
-                  <Button danger>Оформить возврат</Button>
+                  <Button danger disabled={refundQtySum === 0}>Вернуть · {formatMoney(refundTotal)}</Button>
                 </Popconfirm>
+              </>
+            ) : (
+              <>
+                <Button icon={<Printer size={18} />} onClick={() => printReceipt(order)}>Печать чека</Button>
+                <Button danger onClick={startRefund}>Возврат</Button>
                 <div className="order-detail-footer-main">
                   <Button onClick={onClose}>Закрыть</Button>
                   <Button type="primary" onClick={() => setIsEditing(true)}>Изменить заказ</Button>

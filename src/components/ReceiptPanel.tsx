@@ -13,9 +13,15 @@ interface Props {
 export const ReceiptPanel = observer(function ReceiptPanel({ onPay }: Props) {
   const { cart } = useStore()
   const [removed, setRemoved] = useState<{ line: CartLine; index: number } | null>(null)
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
+
+  function toggleExpanded(index: number) {
+    setExpandedIndex((current) => (current === index ? null : index))
+  }
 
   function handleRemove(index: number) {
     setRemoved(cart.removeAt(index))
+    setExpandedIndex(null)
   }
 
   function handleUndo() {
@@ -27,7 +33,10 @@ export const ReceiptPanel = observer(function ReceiptPanel({ onPay }: Props) {
 
   // чек мог быть очищен целиком кнопкой в шапке — плашка отмены единичного удаления в этом случае неактуальна
   useEffect(() => {
-    if (cart.lines.length === 0) setRemoved(null)
+    if (cart.lines.length === 0) {
+      setRemoved(null)
+      setExpandedIndex(null)
+    }
   }, [cart.lines.length])
 
   return (
@@ -51,38 +60,51 @@ export const ReceiptPanel = observer(function ReceiptPanel({ onPay }: Props) {
           <Empty description="Чек пуст" style={{ marginTop: 48 }} />
         ) : (
           cart.lines.map((line, idx) => (
-            <div className="receipt-line" key={idx}>
-              <div className="receipt-line-main">
-                <div className="receipt-line-name">{line.name}</div>
-                {line.mods.length > 0 && (
-                  <div className="receipt-line-mods">{line.mods.map((m) => m.name).join(', ')}</div>
-                )}
-                <div className="receipt-line-price">
-                  {formatMoney(line.basePrice + line.mods.reduce((s, m) => s + m.priceDelta, 0))} / шт
+            <div className="receipt-line-wrap" key={idx}>
+              <button
+                type="button"
+                className="receipt-line"
+                onClick={() => toggleExpanded(idx)}
+              >
+                <div className="receipt-line-main">
+                  <div className="receipt-line-name" title={line.name}>{line.name}</div>
+                  {line.mods.length > 0 && (
+                    <div className="receipt-line-mods" title={line.mods.map((m) => m.name).join(', ')}>
+                      {line.mods.map((m) => m.name).join(', ')}
+                    </div>
+                  )}
+                  <div className="receipt-line-price">
+                    {formatMoney(line.basePrice + line.mods.reduce((s, m) => s + m.priceDelta, 0))} / шт
+                  </div>
                 </div>
-              </div>
-              <div className="receipt-line-actions">
-                <Button
-                  className="receipt-qty-btn"
-                  icon={<Minus size={18} />}
-                  disabled={line.qty <= 1}
-                  onClick={() => cart.decrement(idx)}
-                />
-                <span className="receipt-line-qty">{line.qty}</span>
-                <Button
-                  className="receipt-qty-btn"
-                  icon={<Plus size={18} />}
-                  onClick={() => cart.increment(idx)}
-                />
-                <Button
-                  className="receipt-del-btn"
-                  type="text"
-                  danger
-                  icon={<Trash2 size={18} />}
-                  onClick={() => handleRemove(idx)}
-                />
-              </div>
-              <div className="receipt-line-total">{formatMoney(cart.lineTotal(line))}</div>
+                <span className="receipt-line-qty-plain">×{line.qty}</span>
+                <span className="receipt-line-total" title={formatMoney(cart.lineTotal(line))}>
+                  {formatMoney(cart.lineTotal(line))}
+                </span>
+              </button>
+
+              {expandedIndex === idx && (
+                <div className="receipt-line-controls">
+                  <Button
+                    className="receipt-qty-btn"
+                    icon={<Minus size={20} />}
+                    disabled={line.qty <= 1}
+                    onClick={() => cart.decrement(idx)}
+                  />
+                  <span className="receipt-line-controls-qty">{line.qty}</span>
+                  <Button
+                    className="receipt-qty-btn"
+                    icon={<Plus size={20} />}
+                    onClick={() => cart.increment(idx)}
+                  />
+                  <Button
+                    className="receipt-qty-btn receipt-del-btn"
+                    danger
+                    icon={<Trash2 size={20} />}
+                    onClick={() => handleRemove(idx)}
+                  />
+                </div>
+              )}
             </div>
           ))
         )}

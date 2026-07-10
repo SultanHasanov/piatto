@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
-import type { CartLine, Category, ModifierGroup, Order, OutboxOp, Product, Settings } from '../types'
+import type { CartLine, Category, ModifierGroup, Order, OutboxOp, ParkedCart, Product, Settings, Shift } from '../types'
 
 export interface PersistedAppState {
   categories: Category[]
@@ -77,6 +77,24 @@ export async function loadCart(): Promise<CartLine[]> {
 
 export async function saveCart(lines: CartLine[]): Promise<void> {
   await db.state.put({ key: 'cart', value: toSerializable(lines) })
+}
+
+export async function loadParked(): Promise<ParkedCart[]> {
+  const stored = await db.state.get('parked')
+  return stored ? (stored.value as ParkedCart[]) : []
+}
+
+export async function saveParked(parked: ParkedCart[]): Promise<void> {
+  await db.state.put({ key: 'parked', value: toSerializable(parked) })
+}
+
+export async function loadShifts(): Promise<Shift[]> {
+  const stored = await db.state.get('shifts')
+  return stored ? (stored.value as Shift[]) : []
+}
+
+export async function saveShifts(shifts: Shift[]): Promise<void> {
+  await db.state.put({ key: 'shifts', value: toSerializable(shifts) })
 }
 
 export async function requestPersistentStorage(): Promise<boolean> {

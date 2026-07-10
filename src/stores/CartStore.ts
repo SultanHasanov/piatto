@@ -1,6 +1,7 @@
 import { makeAutoObservable, runInAction, toJS } from 'mobx'
-import type { CartLine, OrderItemMod } from '../types'
-import { saveCart } from '../db/localDb'
+import type { CartLine, OrderItemMod, ParkedCart } from '../types'
+import { saveCart, saveParked } from '../db/localDb'
+import { uuid } from '../utils/uuid'
 
 function lineTotal(line: CartLine): number {
   const modsSum = line.mods.reduce((s, m) => s + m.priceDelta, 0)
@@ -9,11 +10,14 @@ function lineTotal(line: CartLine): number {
 
 export class CartStore {
   lines: CartLine[] = []
+  parked: ParkedCart[] = []
   storageError: string | null = null
   private persistQueue: Promise<void> = Promise.resolve()
+  private persistParkedQueue: Promise<void> = Promise.resolve()
 
-  constructor(initialLines: CartLine[] = []) {
+  constructor(initialLines: CartLine[] = [], initialParked: ParkedCart[] = []) {
     this.lines = initialLines
+    this.parked = initialParked
     makeAutoObservable(this)
   }
 
@@ -24,6 +28,16 @@ export class CartStore {
       .then(() => runInAction(() => { this.storageError = null }))
       .catch((error: unknown) => runInAction(() => {
         this.storageError = error instanceof Error ? error.message : 'Не удалось сохранить корзину'
+      }))
+  }
+
+  private persistParked() {
+    const snapshot = toJS(this.parked)
+    this.persistParkedQueue = this.persistParkedQueue
+      .then(() => saveParked(snapshot))
+      .then(() => runInAction(() => { this.storageError = null }))
+      .catch((error: unknown) => runInAction(() => {
+        this.storageError = error instanceof Error ? error.message : 'Не удалось сохранить отложенные чеки'
       }))
   }
 
@@ -85,5 +99,33 @@ export class CartStore {
 
   lineTotal(line: CartLine) {
     return lineTotal(line)
+  }
+
+  /** Откладывает текущий чек и освобождает корзину для следующего клиента. */
+  park(note?: string) {
+    if (this.lines.length === 0) return
+    this.parked.push({ id: uuid(), ts: new Date().toISOString(), lines: toJS(this.lines), note })
+    this.persistParked()
+    this.clear()
+  }
+
+  /** Возвращает отложенный чек в корзину. Если корзина не пуста — текущий чек тоже откладывается (swap). */
+  resume(id: string) {
+    const idx = this.parked.findIndex((p) => p.id === id)
+    if (idx === -1) return
+    const [resumed] = this.parked.splice(idx, 1)
+    this.persistParked()
+    if (this.lines.length > 0) this.park()
+    this.lines = resumed.lines
+    this.persist()
+  }
+
+  discardParked(id: string) {
+    this.parked = this.parked.filter((p) => p.id !== id)
+    this.persistParked()
+  }
+
+  parkedTotal(parked: ParkedCart) {
+    return parked.lines.reduce((s, l) => s + lineTotal(l), 0)
   }
 }

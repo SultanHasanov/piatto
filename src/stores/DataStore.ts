@@ -1,18 +1,21 @@
 import { makeAutoObservable, runInAction, toJS } from 'mobx'
 import { uuid } from '../utils/uuid'
-import { saveAppState, type PersistedAppState } from '../db/localDb'
+import { saveAppState, saveShifts, type PersistedAppState } from '../db/localDb'
 import { buildDemoData } from './demoData'
-import { calculateOrderTotal } from '../domain/orderMath'
+import { calculateOrderTotal, calculateShiftSummary } from '../domain/orderMath'
 import type {
   AnyEntity,
   Category,
   ModifierGroup,
   Order,
   OrderItem,
+  OrderRefund,
   OrderTypeConfig,
   OutboxOp,
   Product,
   Settings,
+  Shift,
+  ShiftSummary,
 } from '../types'
 
 // повышаем при изменении демо-каталога — заставляет уже засеянные клиенты пересобрать меню
@@ -36,6 +39,7 @@ function normalizeSettings(settings: Settings): Settings {
           surcharge: Math.max(0, Number(orderType.surcharge) || 0),
         }))
       : DEFAULT_ORDER_TYPES.map((orderType) => ({ ...orderType })),
+    playSoundOnPay: settings.playSoundOnPay ?? true,
   }
 }
 
@@ -46,11 +50,19 @@ export class DataStore {
   orders: Order[] = []
   settings: Settings
   outbox: OutboxOp[] = []
+  shifts: Shift[] = []
   storageError: string | null = null
   private persistQueue: Promise<void> = Promise.resolve()
+  private persistShiftsQueue: Promise<void> = Promise.resolve()
 
-  constructor(persisted: PersistedAppState) {
+  constructor(persisted: PersistedAppState, shifts: Shift[] = []) {
     makeAutoObservable(this)
+    // Старые локальные смены (до перехода на синк) хранились без BaseEntity-полей — достраиваем их.
+    this.shifts = shifts.map((shift) => ({
+      ...shift,
+      type: 'shift',
+      updatedAt: shift.updatedAt ?? shift.closedAt ?? shift.openedAt,
+    }))
 
     if (!persisted.seeded) {
       const demo = buildDemoData()
@@ -154,6 +166,16 @@ export class DataStore {
 
   private commit() {
     this.persist()
+  }
+
+  private persistShifts() {
+    const snapshot = toJS(this.shifts)
+    this.persistShiftsQueue = this.persistShiftsQueue
+      .then(() => saveShifts(snapshot))
+      .then(() => runInAction(() => { this.storageError = null }))
+      .catch((error: unknown) => runInAction(() => {
+        this.storageError = error instanceof Error ? error.message : 'Не удалось сохранить смену'
+      }))
   }
 
   // ---------- Categories ----------
@@ -265,16 +287,69 @@ export class DataStore {
   refundOrder(clientId: string) {
     const item = this.orders.find((o) => o.clientId === clientId)
     if (!item || item.status === 'refunded') return
+    const now = new Date().toISOString()
     item.status = 'refunded'
-    item.updatedAt = new Date().toISOString()
+    item.refundedAt = now
+    item.updatedAt = now
     item.items.forEach((line) => {
       const product = this.products.find((p) => p.clientId === line.productClientId)
       if (product && product.stock !== null) {
         product.stock += line.qty
-        product.updatedAt = new Date().toISOString()
+        product.updatedAt = now
       }
     })
     this.enqueueDomain('refund', item)
+    this.commit()
+  }
+
+  /**
+   * Частичный возврат: returnQty — сколько вернуть по каждой позиции (по индексу в order.items).
+   * Если возвращается всё — делегирует в refundOrder (статус меняется на 'refunded').
+   * Иначе статус остаётся 'paid', возврат добавляется в order.refunds, стоки и total пересчитываются.
+   */
+  refundOrderItems(clientId: string, returnQty: Map<number, number>) {
+    const order = this.orders.find((o) => o.clientId === clientId)
+    if (!order || order.status === 'refunded') return
+
+    const totalReturning = order.items.reduce((sum, line, index) => sum + Math.min(returnQty.get(index) ?? 0, line.qty), 0)
+    const totalRemaining = order.items.reduce((sum, line) => sum + line.qty, 0) - totalReturning
+    if (totalReturning <= 0) return
+    if (totalRemaining <= 0) {
+      this.refundOrder(clientId)
+      return
+    }
+
+    const now = new Date().toISOString()
+    const refundedItems: OrderRefund['items'] = []
+    let refundAmount = 0
+    const nextItems: OrderItem[] = []
+
+    order.items.forEach((line, index) => {
+      const qtyToReturn = Math.min(returnQty.get(index) ?? 0, line.qty)
+      if (qtyToReturn > 0) {
+        const unitPrice = line.basePrice + line.mods.reduce((s, m) => s + m.priceDelta, 0)
+        const sum = unitPrice * qtyToReturn
+        refundedItems.push({ name: line.name, qty: qtyToReturn, sum })
+        refundAmount += sum
+
+        const product = this.products.find((p) => p.clientId === line.productClientId)
+        if (product && product.stock !== null) {
+          product.stock += qtyToReturn
+          product.updatedAt = now
+        }
+      }
+      const remainingQty = line.qty - qtyToReturn
+      if (remainingQty > 0) {
+        nextItems.push({ ...line, qty: remainingQty, total: (line.basePrice + line.mods.reduce((s, m) => s + m.priceDelta, 0)) * remainingQty })
+      }
+    })
+
+    order.items = nextItems
+    order.total = calculateOrderTotal(nextItems, order.orderTypeSurcharge ?? 0)
+    order.refunds = [...(order.refunds ?? []), { ts: now, amount: refundAmount, items: refundedItems }]
+    order.refundedAt = now
+    order.updatedAt = now
+    this.enqueueDomain('editOrder', order)
     this.commit()
   }
 
@@ -337,6 +412,54 @@ export class DataStore {
     this.commit()
   }
 
+  // ---------- Shifts (синхронизируются с Supabase как обычные сущности) ----------
+  get activeShift(): Shift | undefined {
+    return this.shifts.find((shift) => !shift.closedAt)
+  }
+
+  openShift(openingCash: number): Shift {
+    const shift: Shift = {
+      clientId: uuid(),
+      type: 'shift',
+      updatedAt: new Date().toISOString(),
+      openedAt: new Date().toISOString(),
+      openingCash: Math.max(0, Number(openingCash) || 0),
+      cashMovements: [],
+    }
+    this.shifts.push(shift)
+    this.persistShifts()
+    this.enqueue('create', shift)
+    this.commit()
+    return shift
+  }
+
+  addCashMovement(kind: 'in' | 'out', amount: number, note?: string) {
+    const shift = this.activeShift
+    if (!shift || amount <= 0) return
+    shift.cashMovements.push({ id: uuid(), ts: new Date().toISOString(), kind, amount, note })
+    shift.updatedAt = new Date().toISOString()
+    this.persistShifts()
+    this.enqueue('update', shift)
+    this.commit()
+  }
+
+  shiftSummary(shift: Shift): ShiftSummary {
+    return calculateShiftSummary(this.orders, shift.openingCash, shift.cashMovements, shift.openedAt, shift.closedAt)
+  }
+
+  closeShift(actualCash: number): Shift | undefined {
+    const shift = this.activeShift
+    if (!shift) return undefined
+    shift.closedAt = new Date().toISOString()
+    const summary = this.shiftSummary(shift)
+    shift.closing = { actualCash: Math.max(0, Number(actualCash) || 0), expectedCash: summary.expectedCash, summary }
+    shift.updatedAt = shift.closedAt
+    this.persistShifts()
+    this.enqueue('update', shift)
+    this.commit()
+    return shift
+  }
+
   // ---------- Outbox / sync support ----------
   removeFromOutbox(opId: string) {
     this.outbox = this.outbox.filter((o) => o.id !== opId)
@@ -353,6 +476,7 @@ export class DataStore {
       ...this.modifierGroups,
       ...this.products,
       ...this.orders,
+      ...this.shifts,
       this.settings,
     ]
     const pendingKeys = new Set(this.outbox.map((operation) => `${operation.type}:${operation.clientId}`))
@@ -375,6 +499,8 @@ export class DataStore {
         return this.orders
       case 'settings':
         return [this.settings]
+      case 'shift':
+        return this.shifts
     }
   }
 
@@ -384,6 +510,7 @@ export class DataStore {
         this.mergeOne(entity)
       }
       this.commit()
+      if (remote.some((entity) => entity.type === 'shift')) this.persistShifts()
     })
   }
 

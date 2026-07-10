@@ -3,6 +3,8 @@ import { observer } from 'mobx-react-lite'
 import { Input, Button, message } from 'antd'
 import { ArrowLeft, Search, Pencil } from 'lucide-react'
 import { useStore } from '../stores/context'
+import { usePrint } from '../print/PrintContext'
+import { playOrderPaidSound } from '../utils/sound'
 import { CategoryTile } from '../components/CategoryTile'
 import { ProductTile } from '../components/ProductTile'
 import { ReceiptPanel } from '../components/ReceiptPanel'
@@ -14,6 +16,7 @@ import type { Category, OrderTypeConfig, Product } from '../types'
 
 export const PosPage = observer(function PosPage() {
   const { data, cart } = useStore()
+  const { printReceipt } = usePrint()
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [modifierProduct, setModifierProduct] = useState<Product | null>(null)
@@ -86,7 +89,7 @@ export const PosPage = observer(function PosPage() {
       mods: l.mods,
       total: cart.lineTotal(l),
     }))
-    data.checkoutOrder({
+    const order = data.checkoutOrder({
       items,
       total: cart.total + orderType.surcharge,
       payment: method,
@@ -99,6 +102,8 @@ export const PosPage = observer(function PosPage() {
     cart.clear()
     setPayOpen(false)
     message.success('Оплачено')
+    if (data.settings.playSoundOnPay) playOrderPaidSound()
+    if (data.settings.printReceiptAfterPay) printReceipt(order)
   }
 
   const modifierGroupsForProduct = modifierProduct

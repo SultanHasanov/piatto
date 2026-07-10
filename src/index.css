@@ -193,6 +193,60 @@ body {
   font-weight: 600;
 }
 
+.app-header-receipt-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.parked-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.parked-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 56px;
+  padding: 12px 16px;
+  border: 1px solid #ececec;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.parked-row-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.parked-row-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 16px;
+}
+
+.parked-row-items {
+  margin-top: 4px;
+  color: #777;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.parked-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 .sync-badge {
   display: flex;
   align-items: center;
@@ -419,67 +473,116 @@ body {
   padding: 8px 12px;
 }
 
-.receipt-line {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 4px;
+.receipt-line-wrap {
   border-bottom: 1px solid #f5f5f5;
+}
+
+.receipt-line {
+  /* Кнопки убраны из строки (тап раскрывает панель управления снизу) — колонки всегда
+     фиксированной ширины, строки выравниваются идеально независимо от длины названия/суммы. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px auto;
+  align-items: center;
+  column-gap: 20px;
+  width: 100%;
+  padding: 12px 8px;
+  border: none;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.receipt-line:active {
+  background: #f5f6f8;
+}
+
+.receipt-line-main {
+  min-width: 0;
 }
 
 .receipt-line-name {
   font-weight: 600;
-  font-size: 16px;
+  font-size: 15px;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .receipt-line-mods {
   font-size: 13px;
   color: #888;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .receipt-line-price {
   font-size: 13px;
   color: #999;
   margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.receipt-line-actions {
+.receipt-line-qty-plain {
+  align-self: stretch;
   display: flex;
   align-items: center;
-  gap: 6px;
-}
-
-.receipt-qty-btn {
-  width: 44px !important;
-  height: 44px !important;
-  padding: 0 !important;
-  display: flex !important;
-  align-items: center;
   justify-content: center;
-}
-
-.receipt-del-btn {
-  width: 44px !important;
-  height: 44px !important;
-  padding: 0 !important;
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-}
-
-.receipt-line-qty {
-  min-width: 32px;
-  text-align: center;
-  font-weight: 700;
-  font-size: 17px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #222;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .receipt-line-total {
-  font-weight: 600;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  font-weight: 700;
   font-size: 16px;
-  min-width: 80px;
-  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.receipt-qty-btn {
+  width: 48px !important;
+  height: 48px !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+.receipt-line-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 10px 8px 14px;
+  background: #f5f6f8;
+  border-radius: 0 0 10px 10px;
+}
+
+.receipt-line-controls-qty {
+  min-width: 36px;
+  text-align: center;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.receipt-del-btn {
+  margin-left: 12px;
+  border-color: #ffccc7 !important;
 }
 
 .pay-button {
@@ -812,6 +915,85 @@ body {
   .ant-table-content {
     overflow: visible !important;
   }
+}
+
+/* ---------- Receipt / shift-report printing (thermal-style 80mm slip) ---------- */
+
+#print-job-root {
+  display: none;
+}
+
+@media print {
+  body.print-job * {
+    visibility: hidden;
+  }
+  body.print-job #print-job-root,
+  body.print-job #print-job-root * {
+    visibility: visible;
+  }
+  body.print-job #print-job-root {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+  @page {
+    margin: 4mm;
+  }
+}
+
+.receipt-print {
+  width: 76mm;
+  margin: 0 auto;
+  padding: 4mm 0;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #000;
+}
+
+.receipt-print-center {
+  text-align: center;
+}
+
+.receipt-print-center strong {
+  font-size: 14px;
+}
+
+.receipt-print-divider {
+  border-top: 1px dashed #000;
+  margin: 6px 0;
+}
+
+.receipt-print-item {
+  margin-bottom: 4px;
+}
+
+.receipt-print-item-mods {
+  padding-left: 8px;
+  font-size: 11px;
+}
+
+.receipt-print-item-row,
+.receipt-print-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.receipt-print-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  margin: 6px 0;
+}
+
+.receipt-print-thanks {
+  margin-top: 8px;
+  font-weight: 700;
 }
 
 .settings-order-types-preview {
@@ -1252,6 +1434,87 @@ body {
   color: #cf1322;
   font-weight: 600;
   text-align: center;
+}
+
+.order-refunds-history {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 0;
+  border-top: 1px dashed #eee;
+  margin-top: 8px;
+}
+
+.order-refund-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: #cf1322;
+}
+
+/* ---------- Shift page ---------- */
+
+.shift-open-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 420px;
+  padding: 24px;
+  border: 1px solid #ececec;
+  border-radius: 14px;
+  background: #fff;
+  margin-top: 16px;
+}
+
+.shift-cash-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.shift-movements {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shift-movement-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.shift-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.shift-history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 56px;
+  padding: 10px 14px;
+  border: 1px solid #ececec;
+  border-radius: 12px;
+}
+
+.shift-history-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.shift-history-main span {
+  color: #777;
+  font-size: 13px;
 }
 
 @media (max-width: 900px) {

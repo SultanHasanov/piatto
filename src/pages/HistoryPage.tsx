@@ -79,6 +79,9 @@ export const HistoryPage = observer(function HistoryPage() {
                     <Tag color={order.status === 'paid' ? 'green' : 'red'}>
                       {order.status === 'paid' ? 'Оплачен' : 'Возвращён'}
                     </Tag>
+                    {order.status === 'paid' && order.refunds && order.refunds.length > 0 && (
+                      <Tag color="orange">Возврат части</Tag>
+                    )}
                   </div>
                 </div>
                 <div className="order-row-items">
