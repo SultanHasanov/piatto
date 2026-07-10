@@ -63,17 +63,22 @@ export const ReceiptPanel = observer(function ReceiptPanel({ onPay }: Props) {
               </div>
               <div className="receipt-line-actions">
                 <Button
-                  size="small"
-                  icon={<Minus size={14} />}
+                  className="receipt-qty-btn"
+                  icon={<Minus size={18} />}
                   disabled={line.qty <= 1}
                   onClick={() => cart.decrement(idx)}
                 />
                 <span className="receipt-line-qty">{line.qty}</span>
-                <Button size="small" icon={<Plus size={14} />} onClick={() => cart.increment(idx)} />
                 <Button
+                  className="receipt-qty-btn"
+                  icon={<Plus size={18} />}
+                  onClick={() => cart.increment(idx)}
+                />
+                <Button
+                  className="receipt-del-btn"
                   type="text"
                   danger
-                  icon={<Trash2 size={16} />}
+                  icon={<Trash2 size={18} />}
                   onClick={() => handleRemove(idx)}
                 />
               </div>

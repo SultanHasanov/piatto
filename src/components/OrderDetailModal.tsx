@@ -35,6 +35,8 @@ export const OrderDetailModal = observer(function OrderDetailModal({ order, open
   const [items, setItems] = useState<OrderItem[]>([])
   const [modifierProduct, setModifierProduct] = useState<Product | null>(null)
   const [selectedProductId, setSelectedProductId] = useState<string>()
+  const [payment, setPayment] = useState<string>('')
+  const [orderTypeId, setOrderTypeId] = useState<string>('')
 
   useEffect(() => {
     if (!open || !order) return
@@ -42,11 +44,35 @@ export const OrderDetailModal = observer(function OrderDetailModal({ order, open
     setIsEditing(false)
     setModifierProduct(null)
     setSelectedProductId(undefined)
+    setPayment(order.payment)
+    setOrderTypeId(order.orderType)
   }, [open, order])
 
+  const paymentOptions = useMemo(() => {
+    const names = new Set<string>(data.settings.paymentMethods)
+    if (order?.payment) names.add(order.payment)
+    return Array.from(names).map((name) => ({ label: name, value: name }))
+  }, [data.settings.paymentMethods, order?.payment])
+
+  const orderTypeOptions = useMemo(() => {
+    const map = new Map<string, string>()
+    data.settings.orderTypes
+      .filter((orderType) => orderType.enabled)
+      .forEach((orderType) => map.set(orderType.id, orderType.name))
+    if (order && !map.has(order.orderType)) map.set(order.orderType, order.orderTypeName)
+    return Array.from(map).map(([value, label]) => ({ label, value }))
+  }, [data.settings.orderTypes, order])
+
+  const selectedOrderTypeConfig = data.settings.orderTypes.find((orderType) => orderType.id === orderTypeId)
+  const editSurcharge = selectedOrderTypeConfig
+    ? selectedOrderTypeConfig.surcharge
+    : orderTypeId === order?.orderType
+      ? order?.orderTypeSurcharge ?? 0
+      : 0
+
   const editTotal = useMemo(
-    () => items.reduce((sum, item) => sum + item.total, 0) + (order?.orderTypeSurcharge ?? 0),
-    [items, order?.orderTypeSurcharge],
+    () => items.reduce((sum, item) => sum + item.total, 0) + editSurcharge,
+    [items, editSurcharge],
   )
 
   const availableProducts = data.products.filter((product) => !product.disabled)
@@ -55,7 +81,11 @@ export const OrderDetailModal = observer(function OrderDetailModal({ order, open
     : []
 
   function resetEditing() {
-    if (order) setItems(cloneItems(order.items))
+    if (order) {
+      setItems(cloneItems(order.items))
+      setPayment(order.payment)
+      setOrderTypeId(order.orderType)
+    }
     setIsEditing(false)
     setModifierProduct(null)
     setSelectedProductId(undefined)
@@ -127,7 +157,14 @@ export const OrderDetailModal = observer(function OrderDetailModal({ order, open
 
   function handleSave() {
     if (!order || items.length === 0) return
-    data.updateOrderItems(order.clientId, cloneItems(items))
+    const orderTypeName = selectedOrderTypeConfig?.name
+      ?? (orderTypeId === order.orderType ? order.orderTypeName : orderTypeId)
+    data.updateOrderItems(order.clientId, cloneItems(items), {
+      payment,
+      orderType: orderTypeId,
+      orderTypeName,
+      orderTypeSurcharge: editSurcharge,
+    })
     setIsEditing(false)
   }
 
@@ -161,6 +198,19 @@ export const OrderDetailModal = observer(function OrderDetailModal({ order, open
           </Space>
         </div>
 
+        {isEditing && (
+          <div className="order-edit-meta">
+            <label className="order-edit-field">
+              <Typography.Text strong>Тип заказа</Typography.Text>
+              <Select value={orderTypeId} options={orderTypeOptions} onChange={setOrderTypeId} />
+            </label>
+            <label className="order-edit-field">
+              <Typography.Text strong>Оплата</Typography.Text>
+              <Select value={payment} options={paymentOptions} onChange={setPayment} />
+            </label>
+          </div>
+        )}
+
         <div className="order-detail-lines">
           {(isEditing ? items : order.items).map((item, index) => (
             <div className={`order-detail-line ${isEditing ? 'order-detail-line--editing' : ''}`} key={`${item.productClientId}-${modsKey(item.mods)}-${index}`}>
@@ -187,10 +237,10 @@ export const OrderDetailModal = observer(function OrderDetailModal({ order, open
           ))}
         </div>
 
-        {order.orderTypeSurcharge > 0 && (
+        {(isEditing ? editSurcharge : order.orderTypeSurcharge) > 0 && (
           <div className="order-detail-surcharge">
-            <span>Доплата «{order.orderTypeName}»</span>
-            <strong>+{formatMoney(order.orderTypeSurcharge)}</strong>
+            <span>Доплата «{isEditing ? (selectedOrderTypeConfig?.name ?? order.orderTypeName) : order.orderTypeName}»</span>
+            <strong>+{formatMoney(isEditing ? editSurcharge : order.orderTypeSurcharge)}</strong>
           </div>
         )}
 

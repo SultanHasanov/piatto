@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Modal, Radio, Checkbox, Button, Space, Typography } from 'antd'
+import { Modal, Button, Typography } from 'antd'
 import type { ModifierGroup, OrderItemMod, Product } from '../types'
 import { formatMoney } from '../utils/format'
 
@@ -58,50 +58,49 @@ export function ModifierModal({ product, groups, open, onCancel, onConfirm }: Pr
       title={product.name}
       open={open}
       onCancel={onCancel}
+      width={640}
+      centered
       footer={[
-        <Button key="cancel" onClick={onCancel}>Отмена</Button>,
-        <Button key="ok" type="primary" disabled={missingRequired.length > 0} onClick={handleConfirm}>
+        <Button key="cancel" size="large" onClick={onCancel}>Отмена</Button>,
+        <Button key="ok" type="primary" size="large" disabled={missingRequired.length > 0} onClick={handleConfirm}>
           Добавить · {formatMoney(product.price + totalDelta)}
         </Button>,
       ]}
     >
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        {groups.map((g) => (
-          <div key={g.clientId}>
-            <Typography.Text strong>
-              {g.name} {g.required && <Typography.Text type="danger">*</Typography.Text>}
-            </Typography.Text>
-            <div style={{ marginTop: 8 }}>
-              {g.multi ? (
-                <Space direction="vertical">
-                  {g.options.map((opt) => (
-                    <Checkbox
+      <div>
+        {groups.map((g) => {
+          const chosen = selection[g.clientId] ?? []
+          return (
+            <div className="mod-group" key={g.clientId}>
+              <div className="mod-group-title">
+                {g.name} {g.required && <Typography.Text type="danger">*</Typography.Text>}
+              </div>
+              <div className="mod-options">
+                {g.options.map((opt) => {
+                  const active = chosen.includes(opt.name)
+                  return (
+                    <button
+                      type="button"
                       key={opt.name}
-                      checked={(selection[g.clientId] ?? []).includes(opt.name)}
-                      onChange={(e) => toggleMulti(g, opt.name, e.target.checked)}
+                      className={`mod-option ${active ? 'mod-option--active' : ''}`}
+                      onClick={() =>
+                        g.multi
+                          ? toggleMulti(g, opt.name, !active)
+                          : toggleSingle(g, opt.name)
+                      }
                     >
-                      {opt.name} {opt.priceDelta > 0 && `(+${formatMoney(opt.priceDelta)})`}
-                    </Checkbox>
-                  ))}
-                </Space>
-              ) : (
-                <Radio.Group
-                  value={selection[g.clientId]?.[0]}
-                  onChange={(e) => toggleSingle(g, e.target.value)}
-                >
-                  <Space direction="vertical">
-                    {g.options.map((opt) => (
-                      <Radio key={opt.name} value={opt.name}>
-                        {opt.name} {opt.priceDelta > 0 && `(+${formatMoney(opt.priceDelta)})`}
-                      </Radio>
-                    ))}
-                  </Space>
-                </Radio.Group>
-              )}
+                      <span>{opt.name}</span>
+                      {opt.priceDelta > 0 && (
+                        <span className="mod-option-delta">+{formatMoney(opt.priceDelta)}</span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
-          </div>
-        ))}
-      </Space>
+          )
+        })}
+      </div>
     </Modal>
   )
 }

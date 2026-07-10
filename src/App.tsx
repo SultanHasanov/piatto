@@ -45,7 +45,7 @@ const App = observer(function App() {
         <div className="app-header-left">
           <Button
             type="text"
-            icon={<MenuIcon size={22} />}
+            icon={<MenuIcon size={26} />}
             onClick={() => setDrawerOpen(true)}
             className="burger-button"
           />
@@ -64,7 +64,7 @@ const App = observer(function App() {
                 cancelText="Отмена"
                 onConfirm={() => cart.clear()}
               >
-                <Button size="small" danger icon={<Trash2 size={16} />}>
+                <Button danger icon={<Trash2 size={18} />}>
                   Очистить чек
                 </Button>
               </Popconfirm>

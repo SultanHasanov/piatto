@@ -278,7 +278,11 @@ export class DataStore {
     this.commit()
   }
 
-  updateOrderItems(clientId: string, items: OrderItem[]) {
+  updateOrderItems(
+    clientId: string,
+    items: OrderItem[],
+    meta?: { payment?: string; orderType?: string; orderTypeName?: string; orderTypeSurcharge?: number },
+  ) {
     const order = this.orders.find((o) => o.clientId === clientId)
     if (!order || order.status === 'refunded' || items.length === 0) return
 
@@ -311,6 +315,13 @@ export class DataStore {
       product.stock += delta
       product.updatedAt = now
     })
+
+    if (meta?.payment) order.payment = meta.payment
+    if (meta?.orderType) {
+      order.orderType = meta.orderType
+      if (meta.orderTypeName !== undefined) order.orderTypeName = meta.orderTypeName
+      order.orderTypeSurcharge = Math.max(0, Number(meta.orderTypeSurcharge) || 0)
+    }
 
     order.items = items
     order.total = calculateOrderTotal(items, order.orderTypeSurcharge ?? 0)

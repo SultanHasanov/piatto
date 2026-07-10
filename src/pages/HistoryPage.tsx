@@ -12,11 +12,13 @@ export const HistoryPage = observer(function HistoryPage() {
   const { data } = useStore()
   const [day, setDay] = useState<Dayjs>(dayjs())
   const [typeFilter, setTypeFilter] = useState<OrderType | 'all'>('all')
+  const [paymentFilter, setPaymentFilter] = useState<string>('all')
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
 
   const orders = [...data.orders]
     .filter((order) => dayjs(order.ts).isSame(day, 'day'))
     .filter((order) => typeFilter === 'all' || order.orderType === typeFilter)
+    .filter((order) => paymentFilter === 'all' || order.payment === paymentFilter)
     .sort((a, b) => (a.ts < b.ts ? 1 : -1))
 
   const paidOrders = orders.filter((order) => order.status === 'paid')
@@ -27,6 +29,9 @@ export const HistoryPage = observer(function HistoryPage() {
       ...data.orders.map((order) => [order.orderType, order.orderTypeName] as const),
     ]),
   ).map(([value, label]) => ({ value, label }))
+  const paymentOptions = Array.from(
+    new Set([...data.settings.paymentMethods, ...data.orders.map((order) => order.payment)]),
+  ).map((name) => ({ value: name, label: name }))
 
   return (
     <div className="page-container">
@@ -36,7 +41,12 @@ export const HistoryPage = observer(function HistoryPage() {
           <Segmented
             value={typeFilter}
             onChange={(value) => setTypeFilter(value as OrderType | 'all')}
-            options={[{ label: 'Все', value: 'all' }, ...orderTypeOptions]}
+            options={[{ label: 'Все типы', value: 'all' }, ...orderTypeOptions]}
+          />
+          <Segmented
+            value={paymentFilter}
+            onChange={(value) => setPaymentFilter(value as string)}
+            options={[{ label: 'Вся оплата', value: 'all' }, ...paymentOptions]}
           />
           <DatePicker value={day} onChange={(value) => value && setDay(value)} allowClear={false} />
         </div>

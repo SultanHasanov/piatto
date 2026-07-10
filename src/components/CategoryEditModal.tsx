@@ -56,6 +56,8 @@ export function CategoryEditModal({ category, open, onClose }: Props) {
       title={category ? 'Редактировать категорию' : 'Новая категория'}
       open={open}
       onCancel={onClose}
+      width={640}
+      centered
       footer={[
         category && (
           <Popconfirm key="delete" title="Удалить категорию?" onConfirm={handleDelete}>

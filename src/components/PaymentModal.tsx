@@ -51,7 +51,7 @@ export function PaymentModal({ open, total, methods, orderTypes, onCancel, onSel
   }
 
   return (
-    <Modal title="Оплата заказа" open={open} onCancel={onCancel} footer={null}>
+    <Modal title="Оплата заказа" open={open} onCancel={onCancel} footer={null} width={640} centered>
       <div className="pay-total-label">К оплате</div>
       <div className="pay-total">{formatMoney(finalTotal)}</div>
 

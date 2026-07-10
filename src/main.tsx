@@ -24,7 +24,7 @@ const rootStore = await createRootStore()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ConfigProvider locale={ruRU} theme={{ token: { colorPrimary: '#1677ff' } }}>
+    <ConfigProvider locale={ruRU} theme={{ token: { colorPrimary: '#1677ff', controlHeight: 44, fontSize: 15, borderRadius: 10 } }}>
       <StoreProvider value={rootStore}>
         <Sentry.ErrorBoundary fallback={<div className="fatal-error">Произошла ошибка приложения. Перезапустите Piatto POS и проверьте синхронизацию.</div>}>
           <AuthGate><App /></AuthGate>

@@ -1,3 +1,4 @@
+import { Pencil } from 'lucide-react'
 import type { Product } from '../types'
 import { formatMoney } from '../utils/format'
 
@@ -12,7 +13,7 @@ export function ProductTile({ product, onClick, editMode }: Props) {
   return (
     <button className={`tile product-tile ${product.disabled ? 'tile--disabled' : ''}`} onClick={onClick}>
       {product.disabled && <span className="tile-badge-stop">нет</span>}
-      {editMode && <span className="tile-badge-edit">✏️</span>}
+      {editMode && <span className="tile-badge-edit"><Pencil size={18} /></span>}
       {product.image ? (
         <img src={product.image} alt={product.name} className="product-tile-img" />
       ) : (

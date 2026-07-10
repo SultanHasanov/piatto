@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react'
+import { Pencil } from 'lucide-react'
 import type { Category } from '../types'
 
 interface Props {
@@ -14,7 +15,7 @@ export function CategoryTile({ category, count, onClick, editMode }: Props) {
     : { background: category.color }
   return (
     <button className="tile category-tile" style={style} onClick={onClick}>
-      {editMode && <span className="tile-badge-edit">✏️</span>}
+      {editMode && <span className="tile-badge-edit"><Pencil size={18} /></span>}
       <span className="tile-name">{category.name}</span>
       <span className="tile-sub">{count} товара</span>
     </button>

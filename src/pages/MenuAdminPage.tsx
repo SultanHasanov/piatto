@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { observer } from 'mobx-react-lite'
-import { Tabs, Button, Modal, Form, Input, InputNumber, Switch, Space, Popconfirm, Typography } from 'antd'
+import { Segmented, Button, Modal, Form, Input, InputNumber, Switch, Space, Popconfirm, Typography } from 'antd'
 import { Plus, Trash2 } from 'lucide-react'
 import { useStore } from '../stores/context'
 import { CategoryEditModal } from '../components/CategoryEditModal'
@@ -233,17 +233,27 @@ const ModifiersTab = observer(function ModifiersTab() {
   )
 })
 
+type AdminTab = 'categories' | 'products' | 'modifiers'
+
 export function MenuAdminPage() {
+  const [tab, setTab] = useState<AdminTab>('categories')
   return (
     <div className="page-container">
       <Typography.Title level={3}>Меню</Typography.Title>
-      <Tabs
-        items={[
-          { key: 'categories', label: 'Категории', children: <CategoriesTab /> },
-          { key: 'products', label: 'Товары', children: <ProductsTab /> },
-          { key: 'modifiers', label: 'Модификаторы', children: <ModifiersTab /> },
+      <Segmented
+        className="admin-tabs"
+        size="large"
+        value={tab}
+        onChange={(v) => setTab(v as AdminTab)}
+        options={[
+          { value: 'categories', label: 'Категории' },
+          { value: 'products', label: 'Товары' },
+          { value: 'modifiers', label: 'Модификаторы' },
         ]}
       />
+      {tab === 'categories' && <CategoriesTab />}
+      {tab === 'products' && <ProductsTab />}
+      {tab === 'modifiers' && <ModifiersTab />}
     </div>
   )
 }

@@ -67,7 +67,7 @@ if (!self.define) {
     });
   };
 }
-define(['./workbox-aeb6ecaf'], (function (workbox) { 'use strict';
+define(['./workbox-b2c0eed9'], (function (workbox) { 'use strict';
 
   self.skipWaiting();
   workbox.clientsClaim();
@@ -78,12 +78,29 @@ define(['./workbox-aeb6ecaf'], (function (workbox) { 'use strict';
    */
   workbox.precacheAndRoute([{
     "url": "index.html",
-    "revision": "0.49oe0ho30v4"
+    "revision": "0.6ahps0t40mo"
   }], {});
   workbox.cleanupOutdatedCaches();
   workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
     allowlist: [/^\/$/]
   }));
-  workbox.registerRoute(/^https:\/\/13ceac54f7b2cdb4\.mokky\.dev\/.*/, new workbox.NetworkOnly(), 'GET');
+  workbox.registerRoute(/^https:\/\/images\.unsplash\.com\//i, new workbox.CacheFirst({
+    "cacheName": "piatto-images-v1",
+    plugins: [new workbox.CacheableResponsePlugin({
+      statuses: [0, 200]
+    }), new workbox.ExpirationPlugin({
+      maxEntries: 250,
+      maxAgeSeconds: 7776000
+    })]
+  }), 'GET');
+  workbox.registerRoute(/^https:\/\/[^/]+\.supabase\.co\/storage\/v1\/object\//i, new workbox.CacheFirst({
+    "cacheName": "piatto-images-v1",
+    plugins: [new workbox.CacheableResponsePlugin({
+      statuses: [0, 200]
+    }), new workbox.ExpirationPlugin({
+      maxEntries: 250,
+      maxAgeSeconds: 7776000
+    })]
+  }), 'GET');
 
 }));

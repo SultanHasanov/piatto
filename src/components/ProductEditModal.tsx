@@ -84,6 +84,8 @@ export function ProductEditModal({ product, open, onClose, defaultCategoryId }: 
       title={product ? 'Редактировать товар' : 'Новый товар'}
       open={open}
       onCancel={onClose}
+      width={640}
+      centered
       footer={[
         product && (
           <Popconfirm key="delete" title="Удалить товар?" onConfirm={handleDelete}>
