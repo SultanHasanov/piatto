@@ -16,7 +16,7 @@ import type {
 } from '../types'
 
 // повышаем при изменении демо-каталога — заставляет уже засеянные клиенты пересобрать меню
-const SEED_VERSION = 2
+export const SEED_VERSION = 2
 
 const DEFAULT_ORDER_TYPES: OrderTypeConfig[] = [
   { id: 'dine-in', name: 'Зал', enabled: true, surcharge: 0 },

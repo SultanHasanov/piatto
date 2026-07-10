@@ -6,6 +6,18 @@ import type { SyncStatus } from '../types'
 
 const SYNC_INTERVAL_MS = 30_000
 
+function syncErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (error && typeof error === 'object') {
+    const value = error as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown }
+    const parts = [value.message, value.details, value.hint]
+      .filter((part): part is string => typeof part === 'string' && part.length > 0)
+    if (typeof value.code === 'string') parts.push(`Код: ${value.code}`)
+    if (parts.length) return parts.join(' · ')
+  }
+  return 'Неизвестная ошибка синхронизации'
+}
+
 export class SyncStore {
   status: SyncStatus = api.configured ? (navigator.onLine ? 'idle' : 'offline') : 'local'
   lastSyncAt: string | null = null
@@ -45,6 +57,10 @@ export class SyncStore {
       this.lastError = null
     })
     try {
+      const { data: authData } = await supabase!.auth.getSession()
+      if (!authData.session) {
+        throw new Error('Нет серверной сессии. Выйдите и войдите по PIN при включённом интернете.')
+      }
       await this.push()
       await this.pull()
       runInAction(() => {
@@ -54,7 +70,7 @@ export class SyncStore {
     } catch (error) {
       runInAction(() => {
         this.status = navigator.onLine ? 'error' : 'offline'
-        this.lastError = error instanceof Error ? error.message : 'Ошибка синхронизации'
+        this.lastError = syncErrorMessage(error)
       })
     } finally {
       this.running = false

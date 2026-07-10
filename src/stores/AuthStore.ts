@@ -69,6 +69,13 @@ export class AuthStore {
       this.session = session
       this.loading = false
     }))
+
+    window.addEventListener('online', () => runInAction(() => {
+      if (this.offlineUnlocked && !this.session) {
+        this.offlineUnlocked = false
+        this.error = 'Интернет восстановлен. Введите PIN для синхронизации данных.'
+      }
+    }))
   }
 
   get authenticated(): boolean {

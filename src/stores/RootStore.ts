@@ -1,9 +1,10 @@
-import { DataStore } from './DataStore'
+import { DataStore, SEED_VERSION } from './DataStore'
 import { CartStore } from './CartStore'
 import { SyncStore } from './SyncStore'
 import { loadAppState, loadCart, requestPersistentStorage } from '../db/localDb'
 import { AuthStore } from './AuthStore'
 import { warmImageCache } from '../utils/imageCache'
+import { isSupabaseConfigured } from '../api/supabase'
 
 export class RootStore {
   data: DataStore
@@ -22,7 +23,12 @@ export class RootStore {
 export async function createRootStore(): Promise<RootStore> {
   const [state, cartLines] = await Promise.all([loadAppState(), loadCart()])
   void requestPersistentStorage()
-  const rootStore = new RootStore(new DataStore(state), new CartStore(cartLines), new AuthStore())
+  // A new Supabase-connected device must pull the existing shop catalog instead
+  // of generating another demo catalog with different client UUIDs.
+  const initialState = isSupabaseConfigured && !state.seeded
+    ? { ...state, seeded: true, seedVersion: SEED_VERSION }
+    : state
+  const rootStore = new RootStore(new DataStore(initialState), new CartStore(cartLines), new AuthStore())
   void warmImageCache(rootStore.data.categories, rootStore.data.products)
   window.addEventListener('online', () => void warmImageCache(rootStore.data.categories, rootStore.data.products))
   return rootStore
