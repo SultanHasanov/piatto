@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { observer } from 'mobx-react-lite'
 import { Button, Empty, Alert } from 'antd'
 import { Trash2, Plus, Minus } from 'lucide-react'
@@ -14,6 +14,7 @@ export const ReceiptPanel = observer(function ReceiptPanel({ onPay }: Props) {
   const { cart } = useStore()
   const [removed, setRemoved] = useState<{ line: CartLine; index: number } | null>(null)
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
+  const expandedLineRef = useRef<HTMLDivElement | null>(null)
 
   function toggleExpanded(index: number) {
     setExpandedIndex((current) => (current === index ? null : index))
@@ -39,6 +40,20 @@ export const ReceiptPanel = observer(function ReceiptPanel({ onPay }: Props) {
     }
   }, [cart.lines.length])
 
+  useEffect(() => {
+    if (expandedIndex === null) return
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target
+      if (target instanceof Node && !expandedLineRef.current?.contains(target)) {
+        setExpandedIndex(null)
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown, true)
+    return () => document.removeEventListener('pointerdown', handlePointerDown, true)
+  }, [expandedIndex])
+
   return (
     <div className="receipt-panel">
       {removed && (
@@ -60,7 +75,11 @@ export const ReceiptPanel = observer(function ReceiptPanel({ onPay }: Props) {
           <Empty description="Чек пуст" style={{ marginTop: 48 }} />
         ) : (
           cart.lines.map((line, idx) => (
-            <div className="receipt-line-wrap" key={idx}>
+            <div
+              className="receipt-line-wrap"
+              key={idx}
+              ref={expandedIndex === idx ? expandedLineRef : undefined}
+            >
               <button
                 type="button"
                 className="receipt-line"

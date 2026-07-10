@@ -481,7 +481,7 @@ body {
   /* Кнопки убраны из строки (тап раскрывает панель управления снизу) — колонки всегда
      фиксированной ширины, строки выравниваются идеально независимо от длины названия/суммы. */
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 40px auto;
+  grid-template-columns: minmax(0, 1fr) 40px minmax(0, 1fr);
   align-items: center;
   column-gap: 20px;
   width: 100%;
@@ -505,7 +505,7 @@ body {
 
 .receipt-line-name {
   font-weight: 600;
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.25;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -536,7 +536,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: #222;
   white-space: nowrap;
@@ -549,7 +549,7 @@ body {
   align-items: center;
   justify-content: flex-end;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 17px;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -1540,4 +1540,3 @@ body {
     justify-content: space-between;
   }
 }
-
