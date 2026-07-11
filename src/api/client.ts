@@ -43,4 +43,11 @@ export const api = {
   async uploadProductImage(file: File): Promise<string> {
     return this.uploadImage(file, 'products')
   },
+
+  async getUsage(): Promise<{ storageBytes: number; dbBytes: number }> {
+    const client = requireClient()
+    const { data, error } = await client.rpc('get_shop_usage', { p_shop_id: supabaseShopId })
+    if (error) throw error
+    return { storageBytes: data?.storage_bytes ?? 0, dbBytes: data?.db_bytes ?? 0 }
+  },
 }
