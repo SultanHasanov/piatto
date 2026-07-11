@@ -1,6 +1,6 @@
 import type { Category, Product } from '../types'
 
-export const IMAGE_CACHE_NAME = 'piatto-images-v1'
+export const IMAGE_CACHE_NAME = 'piatto-images-v2'
 
 export async function warmImageCache(categories: Category[], products: Product[]): Promise<void> {
   if (!navigator.onLine || !('caches' in window)) return
@@ -10,7 +10,8 @@ export async function warmImageCache(categories: Category[], products: Product[]
   const cache = await caches.open(IMAGE_CACHE_NAME)
   await Promise.allSettled(urls.map(async (url) => {
     if (await cache.match(url)) return
-    const response = await fetch(url, { mode: 'no-cors', cache: 'no-cache' })
+    const response = await fetch(url, { mode: 'cors', cache: 'no-cache' })
+    if (!response.ok || response.type === 'opaque') return
     await cache.put(url, response)
   }))
 }

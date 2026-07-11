@@ -1,9 +1,10 @@
-import { useEffect } from 'react'
-import { Modal, Form, Input, InputNumber, ColorPicker, Button, Popconfirm } from 'antd'
-import { Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Modal, Form, Input, InputNumber, ColorPicker, Button, Popconfirm, Upload, message } from 'antd'
+import { Trash2, Upload as UploadIcon } from 'lucide-react'
 import { useStore } from '../stores/context'
 import type { Category } from '../types'
 import { CATEGORY_PALETTE } from '../constants'
+import { api } from '../api/client'
 
 interface Props {
   category: Category | null
@@ -14,6 +15,8 @@ interface Props {
 export function CategoryEditModal({ category, open, onClose }: Props) {
   const { data } = useStore()
   const [form] = Form.useForm()
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -21,6 +24,7 @@ export function CategoryEditModal({ category, open, onClose }: Props) {
     // отсутствующие в объекте (image), и значение предыдущей
     // категории могло бы «переехать» на текущую
     form.resetFields()
+    setImageFile(null)
     if (category) {
       form.setFieldsValue({
         name: category.name,
@@ -33,8 +37,11 @@ export function CategoryEditModal({ category, open, onClose }: Props) {
     }
   }, [open, category, form, data.categories.length])
 
-  function handleSubmit() {
-    form.validateFields().then((values) => {
+  async function handleSubmit() {
+    try {
+      setSaving(true)
+      const values = await form.validateFields()
+      if (imageFile) values.image = await api.uploadImage(imageFile, 'categories')
       const color = typeof values.color === 'string' ? values.color : values.color?.toHexString?.() ?? CATEGORY_PALETTE[0]
       if (category) {
         data.updateCategory(category.clientId, { ...values, color })
@@ -42,7 +49,11 @@ export function CategoryEditModal({ category, open, onClose }: Props) {
         data.addCategory({ ...values, color })
       }
       onClose()
-    })
+    } catch (error) {
+      if (error instanceof Error) message.error(error.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   function handleDelete() {
@@ -69,7 +80,7 @@ export function CategoryEditModal({ category, open, onClose }: Props) {
         <Button key="cancel" onClick={onClose}>
           Отмена
         </Button>,
-        <Button key="save" type="primary" onClick={handleSubmit}>
+        <Button key="save" type="primary" loading={saving} onClick={handleSubmit}>
           Сохранить
         </Button>,
       ]}
@@ -86,6 +97,19 @@ export function CategoryEditModal({ category, open, onClose }: Props) {
         </Form.Item>
         <Form.Item name="image" label="Картинка (ссылка)">
           <Input placeholder="https://..." />
+        </Form.Item>
+        <Form.Item label="Загрузить изображение в Supabase">
+          <Upload
+            accept="image/jpeg,image/png,image/webp"
+            maxCount={1}
+            beforeUpload={(file) => {
+              setImageFile(file)
+              return false
+            }}
+            onRemove={() => setImageFile(null)}
+          >
+            <Button icon={<UploadIcon size={16} />}>Выбрать файл</Button>
+          </Upload>
         </Form.Item>
       </Form>
     </Modal>

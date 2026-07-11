@@ -70,19 +70,21 @@ export default defineConfig({
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/images\.unsplash\.com\//i,
-            handler: 'CacheFirst',
+            handler: 'NetworkFirst',
             options: {
-              cacheName: 'piatto-images-v1',
-              cacheableResponse: { statuses: [0, 200] },
+              cacheName: 'piatto-images-v2',
+              networkTimeoutSeconds: 5,
+              cacheableResponse: { statuses: [200] },
               expiration: { maxEntries: 250, maxAgeSeconds: 60 * 60 * 24 * 90 },
             },
           },
           {
             urlPattern: /^https:\/\/[^/]+\.supabase\.co\/storage\/v1\/object\//i,
-            handler: 'CacheFirst',
+            handler: 'NetworkFirst',
             options: {
-              cacheName: 'piatto-images-v1',
-              cacheableResponse: { statuses: [0, 200] },
+              cacheName: 'piatto-images-v2',
+              networkTimeoutSeconds: 5,
+              cacheableResponse: { statuses: [200] },
               expiration: { maxEntries: 250, maxAgeSeconds: 60 * 60 * 24 * 90 },
             },
           },

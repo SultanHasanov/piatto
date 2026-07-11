@@ -377,6 +377,30 @@ body {
   justify-content: flex-end;
 }
 
+.category-tile-cover,
+.category-tile-shade {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.category-tile-cover {
+  object-fit: cover;
+}
+
+.category-tile-shade {
+  background: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.72));
+}
+
+.category-tile > :not(.category-tile-cover, .category-tile-shade),
+.admin-card--category > :not(.category-tile-cover, .category-tile-shade) {
+  position: relative;
+  z-index: 1;
+}
+
 .category-tile .tile-name {
   color: #fff;
   font-size: 18px;

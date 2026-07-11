@@ -7,6 +7,7 @@ import { CategoryEditModal } from '../components/CategoryEditModal'
 import { ProductEditModal } from '../components/ProductEditModal'
 import type { Category, ModifierGroup, ModifierOption, Product } from '../types'
 import { formatMoney } from '../utils/format'
+import { ReliableImage } from '../components/ReliableImage'
 
 const CategoriesTab = observer(function CategoriesTab() {
   const { data } = useStore()
@@ -29,12 +30,12 @@ const CategoriesTab = observer(function CategoriesTab() {
     <div>
       <div className="admin-card-grid">
         {categories.map((cat) => {
-          const style = cat.image
-            ? { backgroundImage: `linear-gradient(rgba(0,0,0,0.15), rgba(0,0,0,0.55)), url(${cat.image})`, backgroundColor: cat.color, backgroundSize: 'cover', backgroundPosition: 'center' }
-            : { background: cat.color }
+          const style = { background: cat.color }
           const count = data.products.filter((p) => p.categoryId === cat.clientId).length
           return (
             <button key={cat.clientId} className="admin-card admin-card--category" style={style} onClick={() => openEdit(cat)}>
+              {cat.image && <ReliableImage src={cat.image} alt="" className="category-tile-cover" />}
+              {cat.image && <span className="category-tile-shade" />}
               <span className="tile-name">{cat.name}</span>
               <span className="tile-sub">{count} товара</span>
             </button>
@@ -92,7 +93,12 @@ const ProductsTab = observer(function ProductsTab() {
             <button key={p.clientId} className={`admin-card admin-card--product ${p.disabled ? 'tile--disabled' : ''}`} onClick={() => openEdit(p)}>
               {p.disabled && <span className="tile-badge-stop">Нет в наличии</span>}
               {p.image ? (
-                <img src={p.image} alt={p.name} className="product-tile-img" />
+                <ReliableImage
+                  src={p.image}
+                  alt={p.name}
+                  className="product-tile-img"
+                  fallback={<div className="product-tile-img product-tile-img--placeholder">{p.name.slice(0, 1)}</div>}
+                />
               ) : (
                 <div className="product-tile-img product-tile-img--placeholder">{p.name.slice(0, 1)}</div>
               )}

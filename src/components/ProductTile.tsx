@@ -1,6 +1,7 @@
 import { Pencil } from 'lucide-react'
 import type { Product } from '../types'
 import { formatMoney } from '../utils/format'
+import { ReliableImage } from './ReliableImage'
 
 interface Props {
   product: Product
@@ -15,7 +16,12 @@ export function ProductTile({ product, onClick, editMode }: Props) {
       {product.disabled && <span className="tile-badge-stop">нет</span>}
       {editMode && <span className="tile-badge-edit"><Pencil size={18} /></span>}
       {product.image ? (
-        <img src={product.image} alt={product.name} className="product-tile-img" />
+        <ReliableImage
+          src={product.image}
+          alt={product.name}
+          className="product-tile-img"
+          fallback={<div className="product-tile-img product-tile-img--placeholder">{product.name.slice(0, 1)}</div>}
+        />
       ) : (
         <div className="product-tile-img product-tile-img--placeholder">{product.name.slice(0, 1)}</div>
       )}

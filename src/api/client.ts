@@ -28,15 +28,19 @@ export const api = {
     return (data ?? []) as AnyEntity[]
   },
 
-  async uploadProductImage(file: File): Promise<string> {
+  async uploadImage(file: File, folder: 'products' | 'categories' = 'products'): Promise<string> {
     const client = requireClient()
     const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg'
-    const path = `${supabaseShopId}/products/${crypto.randomUUID()}.${extension}`
+    const path = `${supabaseShopId}/${folder}/${crypto.randomUUID()}.${extension}`
     const { error } = await client.storage.from('product-images').upload(path, file, {
       cacheControl: '31536000',
       upsert: false,
     })
     if (error) throw error
     return client.storage.from('product-images').getPublicUrl(path).data.publicUrl
+  },
+
+  async uploadProductImage(file: File): Promise<string> {
+    return this.uploadImage(file, 'products')
   },
 }
