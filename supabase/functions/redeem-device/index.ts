@@ -13,15 +13,10 @@ Deno.serve(async (request) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
     const admin = createClient(url, serviceKey, { auth: { persistSession: false } })
-    let query = admin.from('device_pairings').select('*')
-    query = token ? query.eq('token', token) : query.eq('short_code', String(code))
     stage = 'pairing lookup'
-    const { data: pairing, error: pairingError } = await query.maybeSingle()
-    if (pairingError) throw new Error(`Ошибка проверки кода: ${pairingError.message}`)
-    if (!pairing) throw new Error('Код не найден. Создайте новый код на главной кассе')
-    if (pairing.shop_id !== shopId) throw new Error('Код создан для другой точки продаж')
-    if (pairing.redeemed_at) throw new Error('Код уже был использован. Создайте новый код')
-    if (new Date(pairing.expires_at).getTime() <= Date.now()) throw new Error('Срок действия кода истёк. Создайте новый код')
+    const publicClient = createClient(url, anonKey, { auth: { persistSession: false } })
+    const { data: pairing, error: pairingError } = await publicClient.rpc('lookup_device_pairing', { p_shop_id: shopId, p_token: token ?? null, p_code: code ? String(code) : null })
+    if (pairingError || !pairing) throw new Error(pairingError?.message ?? 'Код не найден')
 
     stage = 'device user creation'
     const email = `device-${crypto.randomUUID()}@devices.piatto.app`
@@ -30,19 +25,14 @@ Deno.serve(async (request) => {
     if (createError || !created.user) throw createError ?? new Error('Не удалось создать устройство')
     const userId = created.user.id
     createdUserId = userId
-    stage = 'shop membership creation'
-    const { error: memberError } = await admin.from('shop_users').insert({ shop_id: shopId, user_id: userId, role: 'cashier' })
-    if (memberError) throw memberError
     stage = 'device registration'
-    const { data: device, error: deviceError } = await admin.from('devices').insert({ shop_id: shopId, auth_user_id: userId, name: String(name).trim().slice(0, 80) }).select('id').single()
+    const { data: deviceId, error: deviceError } = await publicClient.rpc('register_paired_device', { p_pairing_id: pairing.id, p_user_id: userId, p_name: String(name).trim(), p_token: token ?? null, p_code: code ? String(code) : null })
     if (deviceError) throw deviceError
-    await admin.from('device_pairings').update({ redeemed_at: new Date().toISOString() }).eq('id', pairing.id)
 
     stage = 'device sign in'
-    const client = createClient(url, anonKey, { auth: { persistSession: false } })
-    const { data: signed, error: signError } = await client.auth.signInWithPassword({ email, password })
+    const { data: signed, error: signError } = await publicClient.auth.signInWithPassword({ email, password })
     if (signError || !signed.session) throw signError ?? new Error('Не удалось открыть сессию')
-    return new Response(JSON.stringify({ session: signed.session, deviceId: device.id }), { headers: { ...cors, 'Content-Type': 'application/json' } })
+    return new Response(JSON.stringify({ session: signed.session, deviceId }), { headers: { ...cors, 'Content-Type': 'application/json' } })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Ошибка сопряжения'
     console.error(`redeem-device failed at ${stage}: ${message}`)
