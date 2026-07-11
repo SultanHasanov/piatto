@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState } from 'react'
 import { observer } from 'mobx-react-lite'
 import { Layout, Menu, Typography, Drawer, Button, Popconfirm, Badge, Tooltip } from 'antd'
-import { Menu as MenuIcon, Store, History, BarChart3, List, Settings, Trash2, PauseCircle, Clock, RotateCw, MonitorSmartphone } from 'lucide-react'
+import { Menu as MenuIcon, Store, History, BarChart3, List, Settings, Trash2, PauseCircle, Clock, MonitorSmartphone } from 'lucide-react'
 import { useStore } from './stores/context'
 import { PosPage } from './pages/PosPage'
 import { ParkedCartsModal } from './components/ParkedCartsModal'
@@ -49,11 +49,6 @@ const App = observer(function App() {
 
   return (
     <>
-      <div className="portrait-tablet-blocker" role="status" aria-live="polite">
-        <RotateCw size={64} strokeWidth={1.8} />
-        <strong>Поверните планшет</strong>
-        <span>Приложение работает только в горизонтальном режиме</span>
-      </div>
       <Layout className="app-shell">
       <Header className="app-header">
         <div className="app-header-left">

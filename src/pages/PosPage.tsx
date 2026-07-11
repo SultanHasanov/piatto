@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { observer } from 'mobx-react-lite'
-import { Input, Button, Badge, Drawer, Popconfirm, Tooltip, message } from 'antd'
+import { Input, Button, Badge, Drawer, Popconfirm, message } from 'antd'
 import { ArrowLeft, Search, Pencil, PauseCircle, Trash2 } from 'lucide-react'
 import { useStore } from '../stores/context'
 import { usePrint } from '../print/PrintContext'
@@ -210,15 +210,14 @@ export const PosPage = observer(function PosPage() {
             extra={
               cart.lines.length > 0 && (
                 <div className="pos-cart-drawer-actions">
-                  <Tooltip title="Отложить чек">
-                    <Button
-                      icon={<PauseCircle size={18} />}
-                      onClick={() => {
-                        cart.park()
-                        setReceiptOpen(false)
-                      }}
-                    />
-                  </Tooltip>
+                  <Button
+                    aria-label="Отложить чек"
+                    icon={<PauseCircle size={18} />}
+                    onClick={() => {
+                      cart.park()
+                      setReceiptOpen(false)
+                    }}
+                  />
                   <Popconfirm
                     title="Очистить чек?"
                     description="Все добавленные товары будут удалены"
@@ -229,9 +228,7 @@ export const PosPage = observer(function PosPage() {
                       setReceiptOpen(false)
                     }}
                   >
-                    <Tooltip title="Очистить чек">
-                      <Button danger icon={<Trash2 size={18} />} />
-                    </Tooltip>
+                    <Button danger aria-label="Очистить чек" icon={<Trash2 size={18} />} />
                   </Popconfirm>
                 </div>
               )
