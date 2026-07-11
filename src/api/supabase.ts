@@ -29,12 +29,18 @@ export function toCanonicalUrl(url: string): string {
   return url
 }
 
+// Ключ хранения сессии по умолчанию выводится из URL клиента. После перехода на
+// /supabase-proxy он изменился бы и все устройства потеряли бы сессию — фиксируем
+// прежний ключ (sb-<project-ref>-auth-token), выведенный из канонического адреса.
+const projectRef = supabaseCanonicalUrl.match(/^https:\/\/([^.]+)\./)?.[1] ?? ''
+
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabasePublishableKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
+        ...(projectRef ? { storageKey: `sb-${projectRef}-auth-token` } : {}),
       },
     })
   : null
