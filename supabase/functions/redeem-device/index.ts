@@ -13,22 +13,24 @@ Deno.serve(async (request) => {
     const serviceKey = Deno.env.get('PIATTO_SERVICE_ROLE_KEY')
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
     if (!serviceKey) throw new Error('На сервере не настроен PIATTO_SERVICE_ROLE_KEY')
+    const keyKind = serviceKey.startsWith('eyJ') ? 'legacy-jwt' : serviceKey.startsWith('sb_secret_') ? 'secret-key' : 'unknown'
+    console.log(`redeem-device admin key kind: ${keyKind}, length: ${serviceKey.length}`)
     stage = 'pairing lookup'
     const publicClient = createClient(url, anonKey, { auth: { persistSession: false } })
     const { data: pairing, error: pairingError } = await publicClient.rpc('lookup_device_pairing', { p_shop_id: shopId, p_token: token ?? null, p_code: code ? String(code) : null })
     if (pairingError || !pairing) throw new Error(pairingError?.message ?? 'Код не найден')
 
     stage = 'device user creation'
-    const email = `device-${crypto.randomUUID()}@devices.piatto.app`
+    const email = `piatto-device-${crypto.randomUUID()}@example.com`
     const password = `${crypto.randomUUID()}-${crypto.randomUUID()}`
     const adminHeaders: Record<string,string> = { apikey: serviceKey, 'Content-Type': 'application/json' }
     if (serviceKey.startsWith('eyJ')) adminHeaders.Authorization = `Bearer ${serviceKey}`
     const createResponse = await fetch(`${url}/auth/v1/admin/users`, {
       method: 'POST', headers: adminHeaders,
-      body: JSON.stringify({ email, password, email_confirm: true, user_metadata: { display_name: name } }),
+      body: JSON.stringify({ email, password, email_confirm: true }),
     })
     const createText = await createResponse.text()
-    if (!createResponse.ok) throw new Error(`Supabase Auth ${createResponse.status}: ${createText || createResponse.statusText}`)
+    if (!createResponse.ok) throw new Error(`Supabase Auth ${createResponse.status} (${keyKind}): ${createText || createResponse.statusText}`)
     const created = JSON.parse(createText) as { id?:string; user?:{id?:string} }
     const userId = created.id ?? created.user?.id
     if (!userId) throw new Error('Supabase Auth не вернул идентификатор устройства')
