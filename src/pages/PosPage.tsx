@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
 import { observer } from 'mobx-react-lite'
-import { Input, Button, message } from 'antd'
-import { ArrowLeft, Search, Pencil } from 'lucide-react'
+import { Input, Button, Badge, Drawer, Popconfirm, Tooltip, message } from 'antd'
+import { ArrowLeft, Search, Pencil, PauseCircle, Trash2 } from 'lucide-react'
 import { useStore } from '../stores/context'
 import { usePrint } from '../print/PrintContext'
 import { playOrderPaidSound } from '../utils/sound'
+import { useIsMobile } from '../hooks/useIsMobile'
+import { formatMoney } from '../utils/format'
 import { CategoryTile } from '../components/CategoryTile'
 import { ProductTile } from '../components/ProductTile'
 import { ReceiptPanel } from '../components/ReceiptPanel'
@@ -12,11 +14,13 @@ import { ModifierModal } from '../components/ModifierModal'
 import { PaymentModal } from '../components/PaymentModal'
 import { CategoryEditModal } from '../components/CategoryEditModal'
 import { ProductEditModal } from '../components/ProductEditModal'
+import { ParkedCartsModal } from '../components/ParkedCartsModal'
 import type { Category, OrderTypeConfig, Product } from '../types'
 
 export const PosPage = observer(function PosPage() {
   const { data, cart } = useStore()
   const { printReceipt } = usePrint()
+  const isMobile = useIsMobile()
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [modifierProduct, setModifierProduct] = useState<Product | null>(null)
@@ -26,6 +30,8 @@ export const PosPage = observer(function PosPage() {
   const [categoryModalOpen, setCategoryModalOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [productModalOpen, setProductModalOpen] = useState(false)
+  const [receiptOpen, setReceiptOpen] = useState(false)
+  const [parkedOpen, setParkedOpen] = useState(false)
 
   const categories = [...data.categories].sort((a, b) => a.sort - b.sort)
 
@@ -101,6 +107,7 @@ export const PosPage = observer(function PosPage() {
     })
     cart.clear()
     setPayOpen(false)
+    setReceiptOpen(false)
     message.success('Оплачено')
     if (data.settings.playSoundOnPay) playOrderPaidSound()
     if (data.settings.printReceiptAfterPay) printReceipt(order)
@@ -167,7 +174,76 @@ export const PosPage = observer(function PosPage() {
               ))}
         </div>
       </div>
-      <ReceiptPanel onPay={() => setPayOpen(true)} />
+
+      {isMobile ? (
+        <>
+          {cart.lines.length > 0 && (
+            <button type="button" className="pos-cart-bar" onClick={() => setReceiptOpen(true)}>
+              <span className="pos-cart-bar-info">
+                <Badge count={cart.lines.length} color="#fff" style={{ color: '#1677ff' }} />
+                <span>Чек</span>
+              </span>
+              <span className="pos-cart-bar-total">{formatMoney(cart.total)}</span>
+            </button>
+          )}
+          {cart.parked.length > 0 && (
+            <span className="pos-parked-fab-wrap">
+              <Badge count={cart.parked.length} size="small" offset={[-4, 4]}>
+                <Button
+                  shape="circle"
+                  size="large"
+                  className="pos-parked-fab"
+                  aria-label="Отложенные чеки"
+                  icon={<PauseCircle size={20} />}
+                  onClick={() => setParkedOpen(true)}
+                />
+              </Badge>
+            </span>
+          )}
+          <Drawer
+            title="Чек"
+            placement="bottom"
+            height="78vh"
+            open={receiptOpen}
+            onClose={() => setReceiptOpen(false)}
+            styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column' } }}
+            extra={
+              cart.lines.length > 0 && (
+                <div className="pos-cart-drawer-actions">
+                  <Tooltip title="Отложить чек">
+                    <Button
+                      icon={<PauseCircle size={18} />}
+                      onClick={() => {
+                        cart.park()
+                        setReceiptOpen(false)
+                      }}
+                    />
+                  </Tooltip>
+                  <Popconfirm
+                    title="Очистить чек?"
+                    description="Все добавленные товары будут удалены"
+                    okText="Очистить"
+                    cancelText="Отмена"
+                    onConfirm={() => {
+                      cart.clear()
+                      setReceiptOpen(false)
+                    }}
+                  >
+                    <Tooltip title="Очистить чек">
+                      <Button danger icon={<Trash2 size={18} />} />
+                    </Tooltip>
+                  </Popconfirm>
+                </div>
+              )
+            }
+          >
+            <ReceiptPanel onPay={() => setPayOpen(true)} />
+          </Drawer>
+          <ParkedCartsModal open={parkedOpen} onClose={() => setParkedOpen(false)} />
+        </>
+      ) : (
+        <ReceiptPanel onPay={() => setPayOpen(true)} />
+      )}
 
       {modifierProduct && (
         <ModifierModal
