@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { observer } from 'mobx-react-lite'
-import { Alert, Typography, Form, Input, InputNumber, Button, Popconfirm, Progress, Space, Switch, Tag, message } from 'antd'
+import { Alert, Typography, Form, Input, InputNumber, Button, Popconfirm, Progress, QRCode, Space, Switch, Tag, message } from 'antd'
 import { Download, RefreshCw, Upload } from 'lucide-react'
 import dayjs from 'dayjs'
 import { useStore } from '../stores/context'
@@ -8,6 +8,7 @@ import type { SyncStatus } from '../types'
 import { api } from '../api/client'
 import { formatBytes } from '../utils/format'
 
+const SITE_URL = 'https://piatto-three.vercel.app/'
 const STORAGE_LIMIT_BYTES = 1 * 1024 ** 3
 const DB_LIMIT_BYTES = 500 * 1024 ** 2
 
@@ -265,6 +266,12 @@ export const SettingsPage = observer(function SettingsPage() {
             event.target.value = ''
           }}
         />
+      </Space>
+
+      <Typography.Title level={5} style={{ marginTop: 24 }}>Сайт кассы</Typography.Title>
+      <Space direction="vertical" style={{ marginBottom: 24 }}>
+        <QRCode value={SITE_URL} size={180} />
+        <Typography.Link href={SITE_URL} target="_blank">{SITE_URL}</Typography.Link>
       </Space>
     </div>
   )
