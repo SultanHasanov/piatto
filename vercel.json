@@ -1,4 +1,14 @@
 {
+  "headers": [
+    {
+      "source": "/Piatto-POS-ATOL-Android7.apk",
+      "headers": [
+        { "key": "Content-Type", "value": "application/vnd.android.package-archive" },
+        { "key": "Content-Disposition", "value": "attachment; filename=Piatto-POS-ATOL-Android7.apk" },
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    }
+  ],
   "rewrites": [
     {
       "source": "/supabase-proxy/:path*",

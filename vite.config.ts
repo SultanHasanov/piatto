@@ -84,6 +84,7 @@ export default defineConfig(({ mode }) => {
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,jpg,jpeg,webp,svg}'],
+        navigateFallbackDenylist: [/\.apk$/i],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/images\.unsplash\.com\//i,
