@@ -9,7 +9,7 @@ const pinValue=(value:string)=>value.replace(/\D/g,'').slice(0,4)
 
 export const AuthGate=observer(function AuthGate({children}:{children:ReactNode}){
   const {auth}=useStore()
-  const [pin,setPin]=useState(''),[adminPin,setAdminPin]=useState(''),[name,setName]=useState('Касса'),[pairCode,setPairCode]=useState('')
+  const [pin,setPin]=useState(''),[adminPin,setAdminPin]=useState(''),[name,setName]=useState(''),[pairCode,setPairCode]=useState('')
   const urlToken=new URLSearchParams(location.search).get('pair')??''
   if(!auth.configured)return children
   if(auth.loading&&!auth.error)return <div className="auth-loading"><Spin size="large"/></div>
