@@ -1,5 +1,6 @@
 import type { AnyEntity, OutboxOp } from '../types'
 import { isSupabaseConfigured, supabase, supabaseShopId, toCanonicalUrl } from './supabase'
+import { uuid } from '../utils/uuid'
 
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
@@ -75,7 +76,7 @@ export const api = {
     validateImage(file)
     const client = requireClient()
     const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg'
-    const path = `${supabaseShopId}/${folder}/${crypto.randomUUID()}.${extension}`
+    const path = `${supabaseShopId}/${folder}/${uuid()}.${extension}`
     const { error } = await client.storage.from('product-images').upload(path, file, {
       cacheControl: '31536000',
       upsert: false,

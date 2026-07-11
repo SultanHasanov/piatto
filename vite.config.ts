@@ -7,6 +7,10 @@ export default defineConfig(({ mode }) => {
   const supabaseUrl = (env.VITE_SUPABASE_URL ?? '').replace(/\/$/, '')
 
   return {
+  build: {
+    // АТОЛ ОС 3.1 работает на Android 7 со старым System WebView.
+    target: 'chrome61',
+  },
   server: {
     host: '0.0.0.0',
     port: 5173,

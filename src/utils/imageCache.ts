@@ -20,9 +20,9 @@ export async function warmImageCache(categories: Category[], products: Product[]
   const urls = [...new Set([...categories, ...products].map((item) => item.image).filter((url): url is string => Boolean(url?.startsWith('http'))))]
   if (!urls.length) return
 
-  await Promise.allSettled(urls.map(async (url) => {
+  await Promise.all(urls.map(async (url) => {
     const cache = await caches.open(IMAGE_CACHE_NAME)
     if (await cache.match(toProxiedUrl(url))) return
-    await cacheImage(url)
+    await cacheImage(url).catch(() => false)
   }))
 }

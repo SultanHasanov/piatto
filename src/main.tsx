@@ -11,7 +11,9 @@ import { AuthGate } from './components/AuthGate'
 import { PrintProvider } from './print/PrintContext'
 import * as Sentry from '@sentry/react'
 
-registerSW({ immediate: true })
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  registerSW({ immediate: true })
+}
 
 if (import.meta.env.VITE_SENTRY_DSN) {
   Sentry.init({
@@ -21,9 +23,9 @@ if (import.meta.env.VITE_SENTRY_DSN) {
   })
 }
 
-const rootStore = await createRootStore()
-
-createRoot(document.getElementById('root')!).render(
+async function bootstrap() {
+  const rootStore = await createRootStore()
+  createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ConfigProvider locale={ruRU} theme={{ token: { colorPrimary: '#1677ff', controlHeight: 44, fontSize: 15, borderRadius: 10 } }}>
       <StoreProvider value={rootStore}>
@@ -37,4 +39,7 @@ createRoot(document.getElementById('root')!).render(
       </StoreProvider>
     </ConfigProvider>
   </StrictMode>,
-)
+  )
+}
+
+void bootstrap()
