@@ -10,8 +10,9 @@ Deno.serve(async (request) => {
     const { shopId, token, code, name } = await request.json()
     if (!shopId || (!token && !code) || !String(name || '').trim()) throw new Error('Заполните данные устройства')
     const url = Deno.env.get('SUPABASE_URL')!
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const serviceKey = Deno.env.get('PIATTO_SERVICE_ROLE_KEY')
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
+    if (!serviceKey) throw new Error('На сервере не настроен PIATTO_SERVICE_ROLE_KEY')
     const admin = createClient(url, serviceKey, { auth: { persistSession: false } })
     stage = 'pairing lookup'
     const publicClient = createClient(url, anonKey, { auth: { persistSession: false } })
@@ -37,8 +38,11 @@ Deno.serve(async (request) => {
     const message = error instanceof Error ? error.message : 'Ошибка сопряжения'
     console.error(`redeem-device failed at ${stage}: ${message}`)
     if (createdUserId) {
-      const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } })
-      await admin.auth.admin.deleteUser(createdUserId).catch(() => undefined)
+      const cleanupKey = Deno.env.get('PIATTO_SERVICE_ROLE_KEY')
+      if (cleanupKey) {
+        const admin = createClient(Deno.env.get('SUPABASE_URL')!, cleanupKey, { auth: { persistSession: false } })
+        await admin.auth.admin.deleteUser(createdUserId).catch(() => undefined)
+      }
     }
     return new Response(JSON.stringify({ error: message, stage }), { status: 400, headers: { ...cors, 'Content-Type': 'application/json' } })
   }
