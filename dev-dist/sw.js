@@ -67,7 +67,7 @@ if (!self.define) {
     });
   };
 }
-define(['./workbox-b2c0eed9'], (function (workbox) { 'use strict';
+define(['./workbox-edf91e0a'], (function (workbox) { 'use strict';
 
   self.skipWaiting();
   workbox.clientsClaim();
@@ -78,25 +78,27 @@ define(['./workbox-b2c0eed9'], (function (workbox) { 'use strict';
    */
   workbox.precacheAndRoute([{
     "url": "index.html",
-    "revision": "0.6ahps0t40mo"
+    "revision": "0.k34qqqbblj8"
   }], {});
   workbox.cleanupOutdatedCaches();
   workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
     allowlist: [/^\/$/]
   }));
-  workbox.registerRoute(/^https:\/\/images\.unsplash\.com\//i, new workbox.CacheFirst({
-    "cacheName": "piatto-images-v1",
+  workbox.registerRoute(/^https:\/\/images\.unsplash\.com\//i, new workbox.NetworkFirst({
+    "cacheName": "piatto-images-v2",
+    "networkTimeoutSeconds": 5,
     plugins: [new workbox.CacheableResponsePlugin({
-      statuses: [0, 200]
+      statuses: [200]
     }), new workbox.ExpirationPlugin({
       maxEntries: 250,
       maxAgeSeconds: 7776000
     })]
   }), 'GET');
-  workbox.registerRoute(/^https:\/\/[^/]+\.supabase\.co\/storage\/v1\/object\//i, new workbox.CacheFirst({
-    "cacheName": "piatto-images-v1",
+  workbox.registerRoute(/^https:\/\/[^/]+\.supabase\.co\/storage\/v1\/object\//i, new workbox.NetworkFirst({
+    "cacheName": "piatto-images-v2",
+    "networkTimeoutSeconds": 5,
     plugins: [new workbox.CacheableResponsePlugin({
-      statuses: [0, 200]
+      statuses: [200]
     }), new workbox.ExpirationPlugin({
       maxEntries: 250,
       maxAgeSeconds: 7776000

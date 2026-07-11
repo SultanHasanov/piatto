@@ -66,15 +66,21 @@ const App = observer(function App() {
         </div>
         {onPos && (
           <div className="app-header-receipt">
-            <span className="app-header-receipt-title">Чек</span>
+            {cart.parked.length > 0 ? (
+              <Tooltip title="Отложенные чеки">
+                <Badge count={cart.parked.length} size="small" offset={[2, -5]}>
+                  <span
+                    className="app-header-receipt-title app-header-receipt-title-clickable"
+                    onClick={() => setParkedOpen(true)}
+                  >
+                    Чек
+                  </span>
+                </Badge>
+              </Tooltip>
+            ) : (
+              <span className="app-header-receipt-title">Чек</span>
+            )}
             <div className="app-header-receipt-actions">
-              {cart.parked.length > 0 && (
-                <Tooltip title="Отложенные чеки">
-                  <Badge count={cart.parked.length} size="small" offset={[-4, 4]}>
-                    <Button icon={<Clock size={18} />} onClick={() => setParkedOpen(true)} />
-                  </Badge>
-                </Tooltip>
-              )}
               {cart.lines.length > 0 && (
                 <>
                   <Tooltip title="Отложить чек">

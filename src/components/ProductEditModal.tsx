@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Modal, Form, Input, InputNumber, Select, Switch, Button, Popconfirm, Space, Upload, message } from 'antd'
-import { Trash2, Upload as UploadIcon } from 'lucide-react'
+import { Trash2, Upload as UploadIcon, X, ClipboardPaste } from 'lucide-react'
 import { useStore } from '../stores/context'
 import type { Product } from '../types'
 import { api } from '../api/client'
@@ -131,8 +131,33 @@ export function ProductEditModal({ product, open, onClose, defaultCategoryId }: 
         <Form.Item name="image" label="Картинка (ссылка)">
           <Input placeholder="https://..." />
         </Form.Item>
+        <Space style={{ marginTop: -16, marginBottom: 16, width: '100%', justifyContent: 'space-between' }}>
+          <Button
+            color="primary"
+            variant="outlined"
+            icon={<ClipboardPaste size={14} />}
+            onClick={async () => {
+              try {
+                const text = await navigator.clipboard.readText()
+                if (text) form.setFieldValue('image', text)
+              } catch {
+                message.error('Не удалось прочитать буфер обмена')
+              }
+            }}
+          >
+            Вставить из буфера
+          </Button>
+          <Button
+            danger
+            icon={<X size={14} />}
+            onClick={() => form.setFieldValue('image', undefined)}
+          >
+            Очистить
+          </Button>
+        </Space>
         <Form.Item label="Или загрузить изображение">
           <Upload
+            listType="picture"
             accept="image/jpeg,image/png,image/webp"
             maxCount={1}
             beforeUpload={(file) => {

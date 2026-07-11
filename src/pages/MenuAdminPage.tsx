@@ -91,7 +91,7 @@ const ProductsTab = observer(function ProductsTab() {
           const low = p.stock !== null && p.stock <= 0
           return (
             <button key={p.clientId} className={`admin-card admin-card--product ${p.disabled ? 'tile--disabled' : ''}`} onClick={() => openEdit(p)}>
-              {p.disabled && <span className="tile-badge-stop">Нет в наличии</span>}
+              {p.disabled && <span className="tile-badge-stop">нет</span>}
               {p.image ? (
                 <ReliableImage
                   src={p.image}

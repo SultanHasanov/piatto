@@ -193,6 +193,10 @@ body {
   font-weight: 600;
 }
 
+.app-header-receipt-title-clickable {
+  cursor: pointer;
+}
+
 .app-header-receipt-actions {
   display: flex;
   align-items: center;

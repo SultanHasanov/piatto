@@ -23,7 +23,7 @@ export const ParkedCartsModal = observer(function ParkedCartsModal({ open, onClo
         <Empty description="Нет отложенных чеков" />
       ) : (
         <div className="parked-list">
-          {cart.parked.map((parked) => (
+          {[...cart.parked].reverse().map((parked) => (
             <div className="parked-row" key={parked.id}>
               <div className="parked-row-main">
                 <div className="parked-row-heading">

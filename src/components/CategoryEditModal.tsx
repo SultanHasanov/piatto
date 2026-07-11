@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Modal, Form, Input, InputNumber, ColorPicker, Button, Popconfirm, Upload, message } from 'antd'
-import { Trash2, Upload as UploadIcon } from 'lucide-react'
+import { Modal, Form, Input, InputNumber, ColorPicker, Button, Popconfirm, Space, Upload, message } from 'antd'
+import { Trash2, Upload as UploadIcon, X, ClipboardPaste } from 'lucide-react'
 import { useStore } from '../stores/context'
 import type { Category } from '../types'
 import { CATEGORY_PALETTE } from '../constants'
@@ -98,8 +98,33 @@ export function CategoryEditModal({ category, open, onClose }: Props) {
         <Form.Item name="image" label="Картинка (ссылка)">
           <Input placeholder="https://..." />
         </Form.Item>
+        <Space style={{ marginTop: -16, marginBottom: 16, width: '100%', justifyContent: 'space-between' }}>
+          <Button
+            color="primary"
+            variant="outlined"
+            icon={<ClipboardPaste size={14} />}
+            onClick={async () => {
+              try {
+                const text = await navigator.clipboard.readText()
+                if (text) form.setFieldValue('image', text)
+              } catch {
+                message.error('Не удалось прочитать буфер обмена')
+              }
+            }}
+          >
+            Вставить из буфера
+          </Button>
+          <Button
+            danger
+            icon={<X size={14} />}
+            onClick={() => form.setFieldValue('image', undefined)}
+          >
+            Очистить
+          </Button>
+        </Space>
         <Form.Item label="Загрузить изображение в Supabase">
           <Upload
+            listType="picture"
             accept="image/jpeg,image/png,image/webp"
             maxCount={1}
             beforeUpload={(file) => {
