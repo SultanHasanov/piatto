@@ -209,7 +209,7 @@ export const SettingsPage = observer(function SettingsPage() {
             <Button>Перенести локальные данные в Supabase</Button>
           </Popconfirm>
         )}
-        {auth.configured && auth.authenticated && <Button danger onClick={() => auth.signOut()}>Выйти из аккаунта</Button>}
+        {auth.configured && auth.authenticated && <Button danger onClick={() => auth.signOut()}>Заблокировать кассу</Button>}
       </Space>
 
       {auth.configured && (

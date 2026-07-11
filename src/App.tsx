@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState } from 'react'
 import { observer } from 'mobx-react-lite'
 import { Layout, Menu, Typography, Drawer, Button, Popconfirm, Badge, Tooltip } from 'antd'
-import { Menu as MenuIcon, Store, History, BarChart3, List, Settings, Trash2, PauseCircle, Clock, RotateCw } from 'lucide-react'
+import { Menu as MenuIcon, Store, History, BarChart3, List, Settings, Trash2, PauseCircle, Clock, RotateCw, MonitorSmartphone } from 'lucide-react'
 import { useStore } from './stores/context'
 import { PosPage } from './pages/PosPage'
 import { ParkedCartsModal } from './components/ParkedCartsModal'
@@ -11,10 +11,11 @@ const ReportsPage = lazy(() => import('./pages/ReportsPage').then((module) => ({
 const MenuAdminPage = lazy(() => import('./pages/MenuAdminPage').then((module) => ({ default: module.MenuAdminPage })))
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then((module) => ({ default: module.SettingsPage })))
 const ShiftPage = lazy(() => import('./pages/ShiftPage').then((module) => ({ default: module.ShiftPage })))
+const DevicesPage = lazy(() => import('./pages/DevicesPage').then((module) => ({ default: module.DevicesPage })))
 
 const { Header, Content } = Layout
 
-type SectionKey = 'history' | 'reports' | 'menu' | 'settings' | 'shift'
+type SectionKey = 'history' | 'reports' | 'menu' | 'settings' | 'shift' | 'devices'
 
 const menuItems = [
   { key: 'shift', icon: <Clock size={20} />, label: 'Смена' },
@@ -22,6 +23,7 @@ const menuItems = [
   { key: 'reports', icon: <BarChart3 size={20} />, label: 'Отчёты' },
   { key: 'menu', icon: <List size={20} />, label: 'Меню' },
   { key: 'settings', icon: <Settings size={20} />, label: 'Настройки' },
+  { key: 'devices', icon: <MonitorSmartphone size={20} />, label: 'Устройства' },
 ]
 
 const sectionTitles: Record<SectionKey, string> = {
@@ -30,6 +32,7 @@ const sectionTitles: Record<SectionKey, string> = {
   reports: 'Отчёты',
   menu: 'Меню',
   settings: 'Настройки',
+  devices: 'Устройства',
 }
 
 const App = observer(function App() {
@@ -113,6 +116,7 @@ const App = observer(function App() {
           {section === 'reports' && <ReportsPage />}
           {section === 'menu' && <MenuAdminPage />}
           {section === 'settings' && <SettingsPage />}
+          {section === 'devices' && <DevicesPage />}
         </Suspense>
       </Content>
 

@@ -27,6 +27,33 @@ function requireClient() {
 export const api = {
   configured: isSupabaseConfigured,
 
+  async createDevicePairing(deviceId: string, adminPin: string) {
+    const { data, error } = await requireClient().rpc('create_device_pairing', { p_shop_id: supabaseShopId, p_device_id: deviceId, p_admin_pin: adminPin })
+    if (error) throw error
+    return data as { id:string; token:string; code:string; expiresAt:string }
+  },
+
+  async listDevices(deviceId: string, adminPin: string) {
+    const { data, error } = await requireClient().rpc('list_devices', { p_shop_id: supabaseShopId, p_device_id: deviceId, p_admin_pin: adminPin })
+    if (error) throw error
+    return data as Array<{id:string;name:string;primary:boolean;lastSeenAt:string;createdAt:string;revokedAt:string|null}>
+  },
+
+  async revokeDevice(deviceId:string,targetId:string,adminPin:string) {
+    const { error }=await requireClient().rpc('revoke_device',{p_shop_id:supabaseShopId,p_device_id:deviceId,p_target_id:targetId,p_admin_pin:adminPin})
+    if(error)throw error
+  },
+
+  async transferPrimaryDevice(deviceId:string,targetId:string,adminPin:string) {
+    const { error }=await requireClient().rpc('transfer_primary_device',{p_shop_id:supabaseShopId,p_device_id:deviceId,p_target_id:targetId,p_admin_pin:adminPin})
+    if(error)throw error
+  },
+
+  async emergencyClaimPrimary(deviceId:string,adminPin:string) {
+    const { error }=await requireClient().rpc('emergency_claim_primary',{p_shop_id:supabaseShopId,p_device_id:deviceId,p_admin_pin:adminPin})
+    if(error)throw error
+  },
+
   async fetchAll(): Promise<AnyEntity[]> {
     const client = requireClient()
     const { data, error } = await client.rpc('pull_shop_state', { p_shop_id: supabaseShopId })

@@ -1,139 +1,93 @@
 import { makeAutoObservable, runInAction } from 'mobx'
 import type { Session } from '@supabase/supabase-js'
-import { isSupabaseConfigured, supabase } from '../api/supabase'
+import { isSupabaseConfigured, supabase, supabaseShopId } from '../api/supabase'
 
-const OFFLINE_SALT_KEY = 'piatto-offline-pin-salt'
-const OFFLINE_HASH_KEY = 'piatto-offline-pin-hash'
-const PBKDF2_ITERATIONS = 120_000
+const DEVICE_KEY = 'piatto-device-id'
+const PIN_SALT_KEY = 'piatto-offline-pin-salt'
+const PIN_HASH_KEY = 'piatto-offline-pin-hash'
+const ITERATIONS = 120_000
 
-function bytesToBase64(bytes: Uint8Array): string {
-  let binary = ''
-  bytes.forEach((byte) => { binary += String.fromCharCode(byte) })
-  return btoa(binary)
+function b64(bytes: Uint8Array) { return btoa(String.fromCharCode(...bytes)) }
+function bytes(value: string) { return Uint8Array.from(atob(value), c => c.charCodeAt(0)) }
+async function hashPin(pin: string, salt: Uint8Array) {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(pin), 'PBKDF2', false, ['deriveBits'])
+  const result = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: salt as Uint8Array<ArrayBuffer>, iterations: ITERATIONS }, key, 256)
+  return b64(new Uint8Array(result))
 }
-
-function base64ToBytes(value: string): Uint8Array {
-  return Uint8Array.from(atob(value), (character) => character.charCodeAt(0))
-}
-
-async function derivePinHash(password: string, salt: Uint8Array): Promise<string> {
-  const material = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(password),
-    'PBKDF2',
-    false,
-    ['deriveBits'],
-  )
-  const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', hash: 'SHA-256', salt: salt as Uint8Array<ArrayBuffer>, iterations: PBKDF2_ITERATIONS },
-    material,
-    256,
-  )
-  return bytesToBase64(new Uint8Array(bits))
-}
-
-async function rememberOfflinePin(password: string): Promise<void> {
-  const salt = crypto.getRandomValues(new Uint8Array(16))
-  const hash = await derivePinHash(password, salt)
-  localStorage.setItem(OFFLINE_SALT_KEY, bytesToBase64(salt))
-  localStorage.setItem(OFFLINE_HASH_KEY, hash)
-}
-
-async function verifyOfflinePin(password: string): Promise<boolean> {
-  const encodedSalt = localStorage.getItem(OFFLINE_SALT_KEY)
-  const expectedHash = localStorage.getItem(OFFLINE_HASH_KEY)
-  if (!encodedSalt || !expectedHash) return false
-  return derivePinHash(password, base64ToBytes(encodedSalt)).then((hash) => hash === expectedHash)
-}
+async function rememberPin(pin: string) { const salt=crypto.getRandomValues(new Uint8Array(16)); localStorage.setItem(PIN_SALT_KEY,b64(salt)); localStorage.setItem(PIN_HASH_KEY,await hashPin(pin,salt)) }
+async function checkLocalPin(pin: string) { const s=localStorage.getItem(PIN_SALT_KEY), h=localStorage.getItem(PIN_HASH_KEY); return !!s && !!h && await hashPin(pin,bytes(s))===h }
 
 export class AuthStore {
   session: Session | null = null
-  offlineUnlocked = false
   loading = isSupabaseConfigured
+  locked = true
+  securityEnabled = false
+  setupRequired = false
+  deviceActive = false
   error: string | null = null
   readonly configured = isSupabaseConfigured
+  deviceId = localStorage.getItem(DEVICE_KEY)
 
   constructor() {
     makeAutoObservable(this)
-    if (!supabase) return
-
-    void supabase.auth.getSession()
-      .then(({ data, error }) => runInAction(() => {
-        this.session = data.session
-        this.error = error?.message ?? null
-      }))
-      .catch(() => undefined)
-      .finally(() => runInAction(() => { this.loading = false }))
-
-    supabase.auth.onAuthStateChange((_event, session) => runInAction(() => {
-      this.session = session
-      this.loading = false
-    }))
-
-    window.addEventListener('online', () => runInAction(() => {
-      if (this.offlineUnlocked && !this.session) {
-        this.offlineUnlocked = false
-        this.error = 'Интернет восстановлен. Введите PIN для синхронизации данных.'
-      }
-    }))
+    if (!supabase) { this.loading=false; return }
+    void this.initialize()
+    window.addEventListener('online', () => void this.validateDevice())
   }
 
-  get authenticated(): boolean {
-    return Boolean(this.session) || this.offlineUnlocked
+  get authenticated() { return !this.configured || (this.deviceActive && !this.locked) }
+
+  private async initialize() {
+    if (!navigator.onLine && this.deviceId) {
+      const { data: auth } = await supabase!.auth.getSession()
+      runInAction(() => { this.session=auth.session; this.securityEnabled=true; this.deviceActive=true; this.loading=false })
+      return
+    }
+    const [{ data: auth }, security] = await Promise.all([
+      supabase!.auth.getSession(),
+      supabase!.rpc('has_device_security', { p_shop_id: supabaseShopId }),
+    ])
+    runInAction(() => { this.session=auth.session; this.securityEnabled=Boolean(security.data); this.setupRequired=!security.data && !!auth.session })
+    if (this.securityEnabled && this.session && this.deviceId) await this.validateDevice()
+    runInAction(() => { this.loading=false })
   }
 
-  private async tryOfflineUnlock(password: string): Promise<boolean> {
-    const valid = await verifyOfflinePin(password).catch(() => false)
-    runInAction(() => {
-      this.offlineUnlocked = valid
-      this.error = valid
-        ? null
-        : (localStorage.getItem(OFFLINE_HASH_KEY)
-            ? 'Неверный PIN-код'
-            : 'Для первого офлайн-входа нужно один раз войти с интернетом')
-      this.loading = false
-    })
+  async legacySignIn(email: string, pin: string) {
+    this.loading=true; this.error=null
+    const { error } = await supabase!.auth.signInWithPassword({ email, password: pin })
+    const { data } = await supabase!.auth.getSession()
+    runInAction(() => { this.session=data.session; this.setupRequired=!error && !!data.session; this.error=error?'Неверный PIN-код':null; this.loading=false })
+  }
+
+  async bootstrap(name: string, workPin: string, adminPin: string) {
+    this.loading=true; this.error=null
+    const { data, error } = await supabase!.rpc('bootstrap_device',{ p_shop_id:supabaseShopId,p_name:name,p_work_pin:workPin,p_admin_pin:adminPin })
+    if (!error) { localStorage.setItem(DEVICE_KEY,data); await rememberPin(workPin) }
+    runInAction(() => { this.deviceId=data??this.deviceId; this.securityEnabled=!error; this.setupRequired=!!error; this.deviceActive=!error; this.locked=!!error; this.error=error?.message??null; this.loading=false })
+  }
+
+  async validateDevice() {
+    if (!navigator.onLine || !this.session || !this.deviceId) return
+    const { data } = await supabase!.rpc('verify_device',{p_shop_id:supabaseShopId,p_device_id:this.deviceId})
+    runInAction(() => { this.deviceActive=Boolean(data?.active); if (!data?.active) { this.locked=true; this.error='Это устройство отвязано' } })
+  }
+
+  async unlock(pin: string) {
+    this.loading=true; this.error=null
+    let valid=false
+    if (!navigator.onLine) valid=await checkLocalPin(pin).catch(()=>false)
+    else if (this.deviceId) { const { data }=await supabase!.rpc('unlock_device',{p_shop_id:supabaseShopId,p_device_id:this.deviceId,p_pin:pin}); valid=Boolean(data); if(valid) await rememberPin(pin) }
+    runInAction(()=>{this.locked=!valid; this.deviceActive=valid||this.deviceActive; this.error=valid?null:'Неверный PIN-код'; this.loading=false})
     return valid
   }
 
-  async signIn(email: string, password: string): Promise<boolean> {
-    if (!supabase) return false
-    this.loading = true
-    this.error = null
-
-    if (!navigator.onLine) return this.tryOfflineUnlock(password)
-
-    try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (!error) {
-        await rememberOfflinePin(password)
-        runInAction(() => {
-          this.offlineUnlocked = false
-          this.error = null
-          this.loading = false
-        })
-        return true
-      }
-
-      const message = error.message.toLowerCase()
-      if (message.includes('fetch') || message.includes('network')) return this.tryOfflineUnlock(password)
-      runInAction(() => {
-        this.error = message.includes('invalid login credentials') ? 'Неверный PIN-код' : 'Не удалось выполнить вход'
-        this.loading = false
-      })
-      return false
-    } catch {
-      return this.tryOfflineUnlock(password)
-    }
+  async pair(name: string, tokenOrCode: string) {
+    this.loading=true; this.error=null
+    const isCode=/^\d{6}$/.test(tokenOrCode)
+    const { data, error }=await supabase!.functions.invoke('redeem-device',{body:{shopId:supabaseShopId,name,...(isCode?{code:tokenOrCode}:{token:tokenOrCode})}})
+    if (!error && data?.session) { await supabase!.auth.setSession({access_token:data.session.access_token,refresh_token:data.session.refresh_token}); localStorage.setItem(DEVICE_KEY,data.deviceId) }
+    runInAction(()=>{this.session=data?.session??null;this.deviceId=data?.deviceId??null;this.deviceActive=!error;this.locked=true;this.error=error?.message??data?.error??null;this.loading=false})
   }
 
-  async signOut() {
-    runInAction(() => {
-      this.offlineUnlocked = false
-      this.session = null
-      this.error = null
-    })
-    if (!supabase) return
-    await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined)
-  }
+  signOut() { this.locked=true; this.error=null }
 }
