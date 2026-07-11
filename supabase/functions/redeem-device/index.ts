@@ -13,11 +13,15 @@ Deno.serve(async (request) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
     const admin = createClient(url, serviceKey, { auth: { persistSession: false } })
-    let query = admin.from('device_pairings').select('*').eq('shop_id', shopId).is('redeemed_at', null).gt('expires_at', new Date().toISOString())
+    let query = admin.from('device_pairings').select('*')
     query = token ? query.eq('token', token) : query.eq('short_code', String(code))
     stage = 'pairing lookup'
     const { data: pairing, error: pairingError } = await query.maybeSingle()
-    if (pairingError || !pairing) throw new Error('Код недействителен или истёк')
+    if (pairingError) throw new Error(`Ошибка проверки кода: ${pairingError.message}`)
+    if (!pairing) throw new Error('Код не найден. Создайте новый код на главной кассе')
+    if (pairing.shop_id !== shopId) throw new Error('Код создан для другой точки продаж')
+    if (pairing.redeemed_at) throw new Error('Код уже был использован. Создайте новый код')
+    if (new Date(pairing.expires_at).getTime() <= Date.now()) throw new Error('Срок действия кода истёк. Создайте новый код')
 
     stage = 'device user creation'
     const email = `device-${crypto.randomUUID()}@devices.piatto.app`
