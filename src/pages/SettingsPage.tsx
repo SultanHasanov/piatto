@@ -9,6 +9,7 @@ import { api } from '../api/client'
 import { formatBytes } from '../utils/format'
 
 const SITE_URL = 'https://piatto-three.vercel.app/'
+const ATOL_APK_URL = 'https://piatto-g32o6yzio-sultanhasanovs-projects.vercel.app/Piatto-POS-ATOL-Android7.apk'
 const STORAGE_LIMIT_BYTES = 1 * 1024 ** 3
 const DB_LIMIT_BYTES = 500 * 1024 ** 2
 
@@ -266,6 +267,14 @@ export const SettingsPage = observer(function SettingsPage() {
             event.target.value = ''
           }}
         />
+      </Space>
+
+      <Typography.Title level={5} style={{ marginTop: 24 }}>Приложение для АТОЛ SIGMA</Typography.Title>
+      <Space direction="vertical" style={{ marginBottom: 24 }}>
+        <Typography.Text type="secondary">APK для АТОЛ ОС 3.1 и Android 7.0</Typography.Text>
+        <Button type="primary" icon={<Download size={16} />} href={ATOL_APK_URL} target="_blank">
+          Скачать APK для АТОЛ
+        </Button>
       </Space>
 
       <Typography.Title level={5} style={{ marginTop: 24 }}>Сайт кассы</Typography.Title>
