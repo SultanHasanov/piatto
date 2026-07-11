@@ -1,5 +1,5 @@
 import type { AnyEntity, OutboxOp } from '../types'
-import { isSupabaseConfigured, supabase, supabaseShopId } from './supabase'
+import { isSupabaseConfigured, supabase, supabaseShopId, toCanonicalUrl } from './supabase'
 
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
@@ -81,7 +81,7 @@ export const api = {
       upsert: false,
     })
     if (error) throw error
-    return client.storage.from('product-images').getPublicUrl(path).data.publicUrl
+    return toCanonicalUrl(client.storage.from('product-images').getPublicUrl(path).data.publicUrl)
   },
 
   async uploadMigratedImage(blob: Blob, clientId: string, folder: 'products' | 'categories'): Promise<string> {
@@ -94,7 +94,7 @@ export const api = {
       contentType: blob.type,
     })
     if (error) throw error
-    return client.storage.from('product-images').getPublicUrl(path).data.publicUrl
+    return toCanonicalUrl(client.storage.from('product-images').getPublicUrl(path).data.publicUrl)
   },
 
   async uploadProductImage(file: File): Promise<string> {

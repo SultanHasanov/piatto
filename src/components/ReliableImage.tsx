@@ -1,4 +1,5 @@
 import { useEffect, useState, type ImgHTMLAttributes, type ReactNode } from 'react'
+import { toProxiedUrl } from '../api/supabase'
 
 interface Props extends Omit<ImgHTMLAttributes<HTMLImageElement>, 'src' | 'onError'> {
   src: string
@@ -27,7 +28,10 @@ async function evictFailedImage(...urls: string[]): Promise<void> {
     })))
 }
 
-export function ReliableImage({ src, fallback = null, retries = 2, ...props }: Props) {
+export function ReliableImage({ src: rawSrc, fallback = null, retries = 2, ...props }: Props) {
+  // картинки в базе хранятся с каноническим supabase.co URL, который блокируется
+  // некоторыми провайдерами — грузим через same-origin прокси
+  const src = toProxiedUrl(rawSrc)
   const [attempt, setAttempt] = useState(0)
 
   useEffect(() => setAttempt(0), [src])
