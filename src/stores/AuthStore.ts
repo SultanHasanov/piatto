@@ -85,8 +85,13 @@ export class AuthStore {
     this.loading=true; this.error=null
     const isCode=/^\d{6}$/.test(tokenOrCode)
     const { data, error }=await supabase!.functions.invoke('redeem-device',{body:{shopId:supabaseShopId,name,...(isCode?{code:tokenOrCode}:{token:tokenOrCode})}})
+    let errorMessage=data?.error as string|undefined
+    if(error && 'context' in error && error.context instanceof Response) {
+      const details=await error.context.clone().json().catch(()=>null) as {error?:string}|null
+      errorMessage=details?.error
+    }
     if (!error && data?.session) { await supabase!.auth.setSession({access_token:data.session.access_token,refresh_token:data.session.refresh_token}); localStorage.setItem(DEVICE_KEY,data.deviceId) }
-    runInAction(()=>{this.session=data?.session??null;this.deviceId=data?.deviceId??null;this.deviceActive=!error;this.locked=true;this.error=error?.message??data?.error??null;this.loading=false})
+    runInAction(()=>{this.session=data?.session??null;this.deviceId=data?.deviceId??null;this.deviceActive=!error;this.locked=true;this.error=errorMessage??error?.message??null;this.loading=false})
   }
 
   signOut() { this.locked=true; this.error=null }
