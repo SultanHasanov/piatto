@@ -3,6 +3,7 @@ import { api } from '../api/client'
 import { supabase } from '../api/supabase'
 import type { DataStore } from './DataStore'
 import type { SyncStatus } from '../types'
+import { warmImageCache } from '../utils/imageCache'
 
 const SYNC_INTERVAL_MS = 30_000
 
@@ -93,5 +94,6 @@ export class SyncStore {
   private async pull() {
     const remote = await api.fetchAll()
     this.data.mergeRemote(remote)
+    void warmImageCache(this.data.categories, this.data.products)
   }
 }

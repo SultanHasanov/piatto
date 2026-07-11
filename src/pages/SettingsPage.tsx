@@ -71,29 +71,24 @@ export const SettingsPage = observer(function SettingsPage() {
     data.updateSettings({ orderTypes })
   }
 
-  function exportBackup() {
-    const blob = new Blob(
-      [
-        JSON.stringify(
-          {
-            categories: data.categories,
-            modifierGroups: data.modifierGroups,
-            products: data.products,
-            orders: data.orders,
-            settings: data.settings,
-          },
-          null,
-          2,
-        ),
-      ],
-      { type: 'application/json' },
-    )
+  function downloadJson(value: unknown, filename: string) {
+    const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `piatto-backup-${dayjs().format('YYYY-MM-DD-HHmm')}.json`
+    a.download = filename
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  function exportBackup() {
+    downloadJson({
+      categories: data.categories,
+      modifierGroups: data.modifierGroups,
+      products: data.products,
+      orders: data.orders,
+      settings: data.settings,
+    }, `piatto-backup-${dayjs().format('YYYY-MM-DD-HHmm')}.json`)
   }
 
   function importBackup(file: File) {

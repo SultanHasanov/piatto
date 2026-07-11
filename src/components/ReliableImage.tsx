@@ -40,7 +40,11 @@ export function ReliableImage({ src, fallback = null, retries = 2, ...props }: P
       {...props}
       src={currentSrc}
       onError={() => {
-        void evictFailedImage(src, currentSrc).finally(() => setAttempt((value) => value + 1))
+        if (!navigator.onLine) {
+          setAttempt(retries + 1)
+          return
+        }
+        void evictFailedImage(currentSrc).finally(() => setAttempt((value) => value + 1))
       }}
     />
   )

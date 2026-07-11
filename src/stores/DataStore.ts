@@ -1,7 +1,6 @@
 import { makeAutoObservable, runInAction, toJS } from 'mobx'
 import { uuid } from '../utils/uuid'
 import { saveAppState, saveShifts, type PersistedAppState } from '../db/localDb'
-import { buildDemoData } from './demoData'
 import { calculateOrderTotal, calculateShiftSummary } from '../domain/orderMath'
 import type {
   AnyEntity,
@@ -18,14 +17,26 @@ import type {
   ShiftSummary,
 } from '../types'
 
-// повышаем при изменении демо-каталога — заставляет уже засеянные клиенты пересобрать меню
-export const SEED_VERSION = 2
+export const SEED_VERSION = 3
 
 const DEFAULT_ORDER_TYPES: OrderTypeConfig[] = [
   { id: 'dine-in', name: 'Зал', enabled: true, surcharge: 0 },
   { id: 'delivery', name: 'Доставка', enabled: true, surcharge: 0 },
   { id: 'vip', name: 'VIP', enabled: false, surcharge: 0 },
 ]
+
+function defaultSettings(): Settings {
+  return {
+    clientId: uuid(),
+    type: 'settings',
+    shopName: 'Piatto',
+    paymentMethods: ['Наличные', 'Карта', 'Перевод'],
+    orderTypes: DEFAULT_ORDER_TYPES.map((orderType) => ({ ...orderType })),
+    nextOrderNumber: 1,
+    playSoundOnPay: true,
+    updatedAt: new Date().toISOString(),
+  }
+}
 
 function normalizeSettings(settings: Settings): Settings {
   return {
@@ -65,39 +76,14 @@ export class DataStore {
     }))
 
     if (!persisted.seeded) {
-      const demo = buildDemoData()
-      this.categories = demo.categories
-      this.modifierGroups = demo.modifierGroups
-      this.products = demo.products
-      this.settings = demo.settings
+      const settings = defaultSettings()
+      this.categories = []
+      this.modifierGroups = []
+      this.products = []
+      this.settings = settings
       this.orders = []
       this.outbox = [
-        ...demo.categories.map((e) => this.makeOp('create', e)),
-        ...demo.modifierGroups.map((e) => this.makeOp('create', e)),
-        ...demo.products.map((e) => this.makeOp('create', e)),
-        this.makeOp('create', demo.settings),
-      ]
-    } else if ((persisted.seedVersion ?? 1) < SEED_VERSION) {
-      // каталог обновился — пересобираем меню: удаляем старые сущности (и на сервере),
-      // добавляем новые. Заказы и настройки сохраняем.
-      const demo = buildDemoData()
-      const oldEntities = [...persisted.categories, ...persisted.modifierGroups, ...persisted.products]
-      const menuTypes = new Set(['category', 'modifierGroup', 'product'])
-      const keptOutbox = persisted.outbox.filter((o) => !menuTypes.has(o.type)) // оставляем только не-меню операции (заказы)
-      this.categories = demo.categories
-      this.modifierGroups = demo.modifierGroups
-      this.products = demo.products
-      this.orders = persisted.orders.map((o) => ({
-        ...o,
-        orderType: (o as { orderType?: Order['orderType'] }).orderType ?? 'dine-in',
-      }))
-      this.settings = persisted.settings ?? demo.settings
-      this.outbox = [
-        ...keptOutbox,
-        ...oldEntities.map((e) => this.makeOp('delete', e)),
-        ...demo.categories.map((e) => this.makeOp('create', e)),
-        ...demo.modifierGroups.map((e) => this.makeOp('create', e)),
-        ...demo.products.map((e) => this.makeOp('create', e)),
+        this.makeOp('create', settings),
       ]
     } else {
       this.categories = persisted.categories
@@ -107,7 +93,7 @@ export class DataStore {
         ...o,
         orderType: (o as { orderType?: Order['orderType'] }).orderType ?? 'dine-in',
       }))
-      this.settings = persisted.settings ?? buildDemoData().settings
+      this.settings = persisted.settings ?? defaultSettings()
       this.outbox = persisted.outbox
     }
     this.settings = normalizeSettings(this.settings)

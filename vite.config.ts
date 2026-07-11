@@ -66,7 +66,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,jpg,jpeg,webp,svg}'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/images\.unsplash\.com\//i,

@@ -351,7 +351,7 @@ body {
 .tile-badge-edit {
   position: absolute;
   top: 8px;
-  left: 8px;
+  left: 14px;
   width: 36px;
   height: 36px;
   display: flex;
@@ -399,10 +399,14 @@ body {
   background: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.72));
 }
 
-.category-tile > :not(.category-tile-cover, .category-tile-shade),
+.category-tile > :not(.category-tile-cover, .category-tile-shade, .tile-badge-edit),
 .admin-card--category > :not(.category-tile-cover, .category-tile-shade) {
   position: relative;
   z-index: 1;
+}
+
+.category-tile .tile-badge-edit {
+  z-index: 2;
 }
 
 .category-tile .tile-name {

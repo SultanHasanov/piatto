@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Modal, Form, Input, InputNumber, ColorPicker, Button, Popconfirm, Space, Upload, message } from 'antd'
-import { Trash2, Upload as UploadIcon, X, ClipboardPaste } from 'lucide-react'
+import { Modal, Form, Input, InputNumber, ColorPicker, Button, Popconfirm, Upload, message, Alert, Image } from 'antd'
+import { Trash2, Upload as UploadIcon } from 'lucide-react'
 import { useStore } from '../stores/context'
 import type { Category } from '../types'
 import { CATEGORY_PALETTE } from '../constants'
 import { api } from '../api/client'
+import { cacheImage } from '../utils/imageCache'
+import { useOnlineStatus } from '../utils/useOnlineStatus'
 
 interface Props {
   category: Category | null
@@ -16,7 +18,9 @@ export function CategoryEditModal({ category, open, onClose }: Props) {
   const { data } = useStore()
   const [form] = Form.useForm()
   const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imageError, setImageError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const online = useOnlineStatus()
 
   useEffect(() => {
     if (!open) return
@@ -25,6 +29,7 @@ export function CategoryEditModal({ category, open, onClose }: Props) {
     // категории могло бы «переехать» на текущую
     form.resetFields()
     setImageFile(null)
+    setImageError(null)
     if (category) {
       form.setFieldsValue({
         name: category.name,
@@ -41,7 +46,13 @@ export function CategoryEditModal({ category, open, onClose }: Props) {
     try {
       setSaving(true)
       const values = await form.validateFields()
-      if (imageFile) values.image = await api.uploadImage(imageFile, 'categories')
+      if (imageFile && online) {
+        values.image = await api.uploadImage(imageFile, 'categories')
+        void cacheImage(values.image).catch(() => false)
+      } else if (imageFile) {
+        if (!category) values.image = undefined
+        message.warning(category ? 'Изменения сохранены, но новое изображение не загружено' : 'Категория создана, изображение не загружено')
+      }
       const color = typeof values.color === 'string' ? values.color : values.color?.toHexString?.() ?? CATEGORY_PALETTE[0]
       if (category) {
         data.updateCategory(category.clientId, { ...values, color })
@@ -95,46 +106,30 @@ export function CategoryEditModal({ category, open, onClose }: Props) {
         <Form.Item name="color" label="Цвет">
           <ColorPicker presets={[{ label: 'Палитра', colors: CATEGORY_PALETTE }]} />
         </Form.Item>
-        <Form.Item name="image" label="Картинка (ссылка)">
-          <Input placeholder="https://..." />
-        </Form.Item>
-        <Space style={{ marginTop: -16, marginBottom: 16, width: '100%', justifyContent: 'space-between' }}>
-          <Button
-            color="primary"
-            variant="outlined"
-            icon={<ClipboardPaste size={14} />}
-            onClick={async () => {
-              try {
-                const text = await navigator.clipboard.readText()
-                if (text) form.setFieldValue('image', text)
-              } catch {
-                message.error('Не удалось прочитать буфер обмена')
-              }
-            }}
-          >
-            Вставить из буфера
-          </Button>
-          <Button
-            danger
-            icon={<X size={14} />}
-            onClick={() => form.setFieldValue('image', undefined)}
-          >
-            Очистить
-          </Button>
-        </Space>
-        <Form.Item label="Загрузить изображение в Supabase">
+        {category?.image && !imageFile && <Image src={category.image} alt={category.name} width={160} style={{ marginBottom: 12, borderRadius: 8 }} />}
+        {!online && <Alert type="info" showIcon message="Сейчас нет интернета. Создайте категорию без картинки и добавьте её позже" style={{ marginBottom: 16 }} />}
+        <Form.Item label="Изображение (JPEG, PNG или WebP, до 5 МБ)">
           <Upload
             listType="picture"
             accept="image/jpeg,image/png,image/webp"
             maxCount={1}
             beforeUpload={(file) => {
+              if (file.size > 5 * 1024 * 1024) {
+                setImageError('Изображение не должно превышать 5 МБ')
+                return Upload.LIST_IGNORE
+              }
+              setImageError(null)
               setImageFile(file)
               return false
             }}
-            onRemove={() => setImageFile(null)}
+            onRemove={() => {
+              setImageFile(null)
+              setImageError(null)
+            }}
           >
-            <Button icon={<UploadIcon size={16} />}>Выбрать файл</Button>
+            <Button icon={<UploadIcon size={16} />} disabled={!online}>Выбрать файл</Button>
           </Upload>
+          {imageError && <Alert type="error" showIcon message={imageError} style={{ marginTop: 12 }} />}
         </Form.Item>
       </Form>
     </Modal>
