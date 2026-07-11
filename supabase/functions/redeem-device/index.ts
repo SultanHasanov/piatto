@@ -22,7 +22,8 @@ Deno.serve(async (request) => {
 
     stage = 'device user creation'
     const email = `piatto-device-${crypto.randomUUID()}@example.com`
-    const password = `${crypto.randomUUID()}-${crypto.randomUUID()}`
+    // Keep below bcrypt's 72-byte limit used by GoTrue/Supabase Auth.
+    const password = `${crypto.randomUUID()}!Aa7`
     const adminHeaders: Record<string,string> = { apikey: serviceKey, 'Content-Type': 'application/json' }
     if (serviceKey.startsWith('eyJ')) adminHeaders.Authorization = `Bearer ${serviceKey}`
     const createResponse = await fetch(`${url}/auth/v1/admin/users`, {
