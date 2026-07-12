@@ -9,6 +9,7 @@
 
 html, body, #root {
   height: 100%;
+  height: 100dvh;
   margin: 0;
   font-family: 'Segoe UI', system-ui, Roboto, sans-serif;
   -webkit-tap-highlight-color: transparent;
@@ -21,6 +22,7 @@ body {
 .auth-loading,
 .auth-page {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -119,8 +121,11 @@ body {
 
 .app-shell {
   height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .burger-menu .ant-menu-item {
@@ -506,6 +511,29 @@ body {
   border-left: none;
 }
 
+.pos-receipt-drawer .ant-drawer-content-wrapper {
+  height: 78vh !important;
+  height: 78dvh !important;
+  max-height: calc(100vh - env(safe-area-inset-top) - 8px);
+  max-height: calc(100dvh - env(safe-area-inset-top) - 8px);
+}
+
+.pos-receipt-drawer .ant-drawer-content,
+.pos-receipt-drawer .ant-drawer-wrapper-body,
+.pos-receipt-drawer .ant-drawer-body {
+  min-height: 0;
+}
+
+.pos-receipt-drawer .ant-drawer-header {
+  flex: none;
+  padding-left: max(24px, env(safe-area-inset-left));
+  padding-right: max(24px, env(safe-area-inset-right));
+}
+
+.pos-receipt-drawer .ant-drawer-body {
+  padding-bottom: env(safe-area-inset-bottom) !important;
+}
+
 .pos-cart-bar {
   position: sticky;
   bottom: 0;
@@ -539,8 +567,8 @@ body {
 
 .pos-parked-fab-wrap {
   position: fixed;
-  right: 16px;
-  bottom: 76px;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: calc(76px + env(safe-area-inset-bottom));
   z-index: 21;
   display: inline-flex;
 }
@@ -1638,7 +1666,13 @@ body {
 }
 
 @media (max-width: 767px) {
-  .app-header { padding-top: env(safe-area-inset-top); height: calc(60px + env(safe-area-inset-top)); }
+  .app-header {
+    flex: none;
+    padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    height: calc(60px + env(safe-area-inset-top));
+  }
 
   /* ---------- POS ---------- */
   .pos-catalog { padding: 10px; }
@@ -1676,5 +1710,25 @@ body {
   .settings-order-type-row {
     grid-template-columns: minmax(0, 1fr) 110px 56px;
     gap: 6px;
+  }
+}
+
+@media (max-height: 500px) and (pointer: coarse) {
+  .app-header {
+    flex: none;
+    padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    height: calc(52px + env(safe-area-inset-top));
+  }
+
+  .app-header-receipt { display: none; }
+  .pos-layout { flex-direction: column; }
+  .pos-catalog { padding: 8px max(8px, env(safe-area-inset-right)) 8px max(8px, env(safe-area-inset-left)); }
+  .pos-catalog-header { height: 40px; margin-bottom: 8px; }
+  .category-tile { min-height: 104px; }
+  .pos-receipt-drawer .ant-drawer-content-wrapper {
+    height: calc(100vh - env(safe-area-inset-top)) !important;
+    height: calc(100dvh - env(safe-area-inset-top)) !important;
   }
 }

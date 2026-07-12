@@ -202,6 +202,7 @@ export const PosPage = observer(function PosPage() {
           )}
           <Drawer
             title="Чек"
+            rootClassName="pos-receipt-drawer"
             placement="bottom"
             height="78vh"
             open={receiptOpen}
