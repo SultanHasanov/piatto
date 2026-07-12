@@ -1,10 +1,11 @@
 import { lazy, Suspense, useState } from 'react'
 import { observer } from 'mobx-react-lite'
-import { Layout, Menu, Typography, Drawer, Button, Popconfirm, Badge, Tooltip } from 'antd'
-import { Menu as MenuIcon, Store, History, BarChart3, List, Settings, Trash2, PauseCircle, Clock, MonitorSmartphone } from 'lucide-react'
+import { Layout, Menu, Typography, Drawer, Button, Popconfirm, Badge } from 'antd'
+import { Menu as MenuIcon, Store, History, BarChart3, List, Settings, Trash2, PauseCircle, Clock, MonitorSmartphone, Lock } from 'lucide-react'
 import { useStore } from './stores/context'
 import { PosPage } from './pages/PosPage'
 import { ParkedCartsModal } from './components/ParkedCartsModal'
+import { EquipmentStatus } from './components/EquipmentStatus'
 
 const HistoryPage = lazy(() => import('./pages/HistoryPage').then((module) => ({ default: module.HistoryPage })))
 const ReportsPage = lazy(() => import('./pages/ReportsPage').then((module) => ({ default: module.ReportsPage })))
@@ -36,7 +37,7 @@ const sectionTitles: Record<SectionKey, string> = {
 }
 
 const App = observer(function App() {
-  const { data, cart } = useStore()
+  const { data, cart, auth } = useStore()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [section, setSection] = useState<SectionKey | null>(null)
   const [parkedOpen, setParkedOpen] = useState(false)
@@ -61,29 +62,30 @@ const App = observer(function App() {
           <Typography.Title level={4} className="app-title">
             {section ? sectionTitles[section] : 'Касса'}
           </Typography.Title>
+          <EquipmentStatus />
+          <Button type={data.activeShift?'text':'primary'} danger={!data.activeShift} className="shift-header-status" onClick={()=>openSection('shift')}>{data.activeShift?'Смена открыта':'Открыть смену'}</Button>
+          {auth.configured && auth.authenticated && (
+            <Button type="text" icon={<Lock size={20} />} aria-label="Заблокировать кассу" onClick={() => auth.signOut()} />
+          )}
         </div>
         {onPos && (
           <div className="app-header-receipt">
             {cart.parked.length > 0 ? (
-              <Tooltip title="Отложенные чеки">
-                <Badge count={cart.parked.length} size="small" offset={[2, -5]}>
-                  <span
-                    className="app-header-receipt-title app-header-receipt-title-clickable"
-                    onClick={() => setParkedOpen(true)}
-                  >
-                    Чек
-                  </span>
-                </Badge>
-              </Tooltip>
+              <Badge count={cart.parked.length} size="small" offset={[2, -5]}>
+                <span
+                  className="app-header-receipt-title app-header-receipt-title-clickable"
+                  onClick={() => setParkedOpen(true)}
+                >
+                  Чек
+                </span>
+              </Badge>
             ) : (
               <span className="app-header-receipt-title">Чек</span>
             )}
             <div className="app-header-receipt-actions">
               {cart.lines.length > 0 && (
                 <>
-                  <Tooltip title="Отложить чек">
-                    <Button icon={<PauseCircle size={18} />} onClick={() => cart.park()} />
-                  </Tooltip>
+                  <Button icon={<PauseCircle size={18} />} aria-label="Отложить чек" onClick={() => cart.park()} />
                   <Popconfirm
                     title="Очистить чек?"
                     description="Все добавленные товары будут удалены"
@@ -91,9 +93,7 @@ const App = observer(function App() {
                     cancelText="Отмена"
                     onConfirm={() => cart.clear()}
                   >
-                    <Tooltip title="Очистить чек">
-                      <Button danger icon={<Trash2 size={18} />} />
-                    </Tooltip>
+                    <Button danger icon={<Trash2 size={18} />} aria-label="Очистить чек" />
                   </Popconfirm>
                 </>
               )}

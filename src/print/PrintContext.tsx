@@ -3,12 +3,14 @@ import type { Order, Shift } from '../types'
 import { useStore } from '../stores/context'
 import { PrintableReceipt } from '../components/PrintableReceipt'
 import { PrintableShiftReport } from '../components/PrintableShiftReport'
+import { PrintableKitchenTicket } from '../components/PrintableKitchenTicket'
 
-type PrintJob = { kind: 'receipt'; order: Order } | { kind: 'shift'; shift: Shift; mode: 'x' | 'z' }
+type PrintJob = { kind: 'receipt'|'kitchen'; order: Order } | { kind: 'shift'; shift: Shift; mode: 'x' | 'z' }
 
 interface PrintContextValue {
   printReceipt: (order: Order) => void
   printShift: (shift: Shift, mode: 'x' | 'z') => void
+  printKitchen: (order:Order)=>void
 }
 
 const PrintContext = createContext<PrintContextValue | null>(null)
@@ -21,11 +23,13 @@ export function usePrint() {
 
 export function PrintProvider({ children }: { children: ReactNode }) {
   const { data } = useStore()
-  const [job, setJob] = useState<PrintJob | null>(null)
+  const [jobs, setJobs] = useState<PrintJob[]>([])
+  const job=jobs[0]??null
   const printTimer = useRef<number | undefined>(undefined)
 
-  const printReceipt = useCallback((order: Order) => setJob({ kind: 'receipt', order }), [])
-  const printShift = useCallback((shift: Shift, mode: 'x' | 'z') => setJob({ kind: 'shift', shift, mode }), [])
+  const printReceipt = useCallback((order: Order) => setJobs(current=>[...current,{ kind: 'receipt', order }]), [])
+  const printShift = useCallback((shift: Shift, mode: 'x' | 'z') => setJobs(current=>[...current,{ kind: 'shift', shift, mode }]), [])
+  const printKitchen = useCallback((order:Order)=>setJobs(current=>[...current,{kind:'kitchen',order}]),[])
 
   useEffect(() => {
     if (!job) return
@@ -33,7 +37,7 @@ export function PrintProvider({ children }: { children: ReactNode }) {
 
     function clear() {
       document.body.classList.remove('print-job')
-      setJob(null)
+      setJobs(current=>current.slice(1))
       window.removeEventListener('afterprint', clear)
     }
     window.addEventListener('afterprint', clear)
@@ -49,10 +53,11 @@ export function PrintProvider({ children }: { children: ReactNode }) {
   }, [job])
 
   return (
-    <PrintContext.Provider value={{ printReceipt, printShift }}>
+    <PrintContext.Provider value={{ printReceipt, printShift, printKitchen }}>
       {children}
       <div id="print-job-root">
         {job?.kind === 'receipt' && <PrintableReceipt order={job.order} shopName={data.settings.shopName} />}
+        {job?.kind === 'kitchen' && <PrintableKitchenTicket order={job.order} shopName={data.settings.shopName} />}
         {job?.kind === 'shift' && <PrintableShiftReport shift={job.shift} mode={job.mode} shopName={data.settings.shopName} />}
       </div>
     </PrintContext.Provider>

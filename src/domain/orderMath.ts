@@ -49,15 +49,14 @@ export function calculateShiftSummary(
   ordersInShift.forEach((order) => {
     revenue += order.total
     itemsSold += order.items.reduce((sum, item) => sum + item.qty, 0)
-    const current = byPaymentMap.get(order.payment) ?? { payment: order.payment, orders: 0, total: 0 }
-    current.orders += 1
-    current.total += order.total
-    byPaymentMap.set(order.payment, current)
+    const parts = order.payments?.length ? order.payments : [{method:order.payment,amount:order.total}]
+    parts.forEach(part=>{const current=byPaymentMap.get(part.method)??{payment:part.method,orders:0,total:0};current.orders+=1;current.total+=part.amount;byPaymentMap.set(part.method,current)})
   })
 
   let cashSalesTotal = 0
   ordersInShift.forEach((order) => {
-    if (isCashMethod(order.payment)) cashSalesTotal += order.total
+    const parts=order.payments?.length?order.payments:[{method:order.payment,amount:order.total}]
+    cashSalesTotal+=parts.filter(part=>isCashMethod(part.method)).reduce((sum,part)=>sum+part.amount,0)
   })
 
   let refundsTotal = 0
@@ -74,7 +73,9 @@ export function calculateShiftSummary(
       if (!inWindow(event.ts)) return
       refundsTotal += event.amount
       refundsCount += 1
-      if (isCashMethod(order.payment)) cashRefundsTotal += event.amount
+      const parts=order.payments?.length?order.payments:[{method:order.payment,amount:order.total}]
+      const cashPaid=parts.filter(part=>isCashMethod(part.method)).reduce((sum,part)=>sum+part.amount,0)
+      if(order.total>0)cashRefundsTotal+=event.amount*(cashPaid/order.total)
     })
   })
 

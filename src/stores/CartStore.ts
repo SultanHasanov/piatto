@@ -11,6 +11,9 @@ function lineTotal(line: CartLine): number {
 export class CartStore {
   lines: CartLine[] = []
   parked: ParkedCart[] = []
+  discountPercent = 0
+  tableName = ''
+  guestCount = 1
   storageError: string | null = null
   private persistQueue: Promise<void> = Promise.resolve()
   private persistParkedQueue: Promise<void> = Promise.resolve()
@@ -41,9 +44,12 @@ export class CartStore {
       }))
   }
 
-  get total() {
+  get subtotal() {
     return this.lines.reduce((s, l) => s + lineTotal(l), 0)
   }
+
+  get discountAmount() { return Math.round(this.subtotal * this.discountPercent) / 100 }
+  get total() { return Math.max(0, this.subtotal - this.discountAmount) }
 
   get count() {
     return this.lines.reduce((s, l) => s + l.qty, 0)
@@ -94,8 +100,14 @@ export class CartStore {
 
   clear() {
     this.lines = []
+    this.discountPercent = 0
+    this.tableName = ''
+    this.guestCount = 1
     this.persist()
   }
+
+  setDiscount(percent:number){this.discountPercent=Math.max(0,Math.min(100,Number(percent)||0))}
+  setTable(name:string,guests=1){this.tableName=name.trim();this.guestCount=Math.max(1,Math.floor(guests)||1)}
 
   lineTotal(line: CartLine) {
     return lineTotal(line)
@@ -104,7 +116,7 @@ export class CartStore {
   /** Откладывает текущий чек и освобождает корзину для следующего клиента. */
   park(note?: string) {
     if (this.lines.length === 0) return
-    this.parked.push({ id: uuid(), ts: new Date().toISOString(), lines: toJS(this.lines), note })
+    this.parked.push({ id: uuid(), ts: new Date().toISOString(), lines: toJS(this.lines), note, tableName:this.tableName||undefined, guestCount:this.guestCount, discountPercent:this.discountPercent||undefined })
     this.persistParked()
     this.clear()
   }
@@ -117,6 +129,9 @@ export class CartStore {
     this.persistParked()
     if (this.lines.length > 0) this.park()
     this.lines = resumed.lines
+    this.tableName = resumed.tableName ?? ''
+    this.guestCount = resumed.guestCount ?? 1
+    this.discountPercent = resumed.discountPercent ?? 0
     this.persist()
   }
 

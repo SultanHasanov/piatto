@@ -56,6 +56,8 @@ export interface OrderItem {
 
 export type PaymentMethod = string
 
+export interface PaymentPart { method: string; amount: number }
+
 export type OrderType = string
 
 export interface OrderTypeConfig {
@@ -78,6 +80,14 @@ export interface Order extends BaseEntity {
   items: OrderItem[]
   total: number
   payment: PaymentMethod
+  payments?: PaymentPart[]
+  receivedCash?: number
+  change?: number
+  subtotal?: number
+  discountPercent?: number
+  discountAmount?: number
+  tableName?: string
+  guestCount?: number
   orderType: OrderType
   orderTypeName: string
   orderTypeSurcharge: number
@@ -94,6 +104,7 @@ export interface Settings extends BaseEntity {
   nextOrderNumber: number
   printReceiptAfterPay?: boolean
   playSoundOnPay?: boolean
+  printKitchenAfterPay?: boolean
 }
 
 export type AnyEntity = Category | ModifierGroup | Product | Order | Settings | Shift
@@ -112,6 +123,9 @@ export interface ParkedCart {
   ts: string // ISO — когда отложен
   lines: CartLine[]
   note?: string
+  tableName?: string
+  guestCount?: number
+  discountPercent?: number
 }
 
 export interface CashMovement {
@@ -167,4 +181,8 @@ export interface OutboxOp {
   clientId: string
   payload?: AnyEntity
   ts: string
+  /** Сколько раз сервер отверг операцию. */
+  attempts?: number
+  /** true — операция признана «ядовитой» и больше не блокирует очередь. */
+  failed?: boolean
 }

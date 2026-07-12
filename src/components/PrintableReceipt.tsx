@@ -21,6 +21,7 @@ export function PrintableReceipt({ order, shopName }: Props) {
         <div>Заказ №{order.number}</div>
         <div>{formatDateTime(order.ts)}</div>
         <div>{order.orderTypeName}</div>
+        {order.tableName&&<div>{order.tableName} · гостей: {order.guestCount??1}</div>}
       </div>
       <div className="receipt-print-divider" />
       {order.items.map((item, index) => {
@@ -45,6 +46,7 @@ export function PrintableReceipt({ order, shopName }: Props) {
           <span>+{formatMoney(order.orderTypeSurcharge)}</span>
         </div>
       )}
+      {!!order.discountAmount&&order.discountAmount>0&&<div className="receipt-print-row"><span>Скидка {order.discountPercent}%</span><span>−{formatMoney(order.discountAmount)}</span></div>}
       <div className="receipt-print-total">
         <span>ИТОГО</span>
         <span>{formatMoney(order.total)}</span>
@@ -53,6 +55,9 @@ export function PrintableReceipt({ order, shopName }: Props) {
         <span>Оплата</span>
         <span>{order.payment}</span>
       </div>
+      {order.payments?.map((part,index)=><div className="receipt-print-row" key={index}><span>{part.method}</span><span>{formatMoney(part.amount)}</span></div>)}
+      {order.receivedCash!==undefined&&<div className="receipt-print-row"><span>Получено</span><span>{formatMoney(order.receivedCash)}</span></div>}
+      {order.change!==undefined&&<div className="receipt-print-row"><span>Сдача</span><span>{formatMoney(order.change)}</span></div>}
       {order.refunds && order.refunds.length > 0 && (
         <>
           <div className="receipt-print-divider" />

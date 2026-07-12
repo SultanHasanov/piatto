@@ -39,7 +39,16 @@ export class SyncStore {
   }
 
   get pendingCount() {
-    return this.data.outbox.length
+    return this.data.outbox.filter((o) => !o.failed).length
+  }
+
+  get failedCount() {
+    return this.data.outbox.filter((o) => o.failed).length
+  }
+
+  retryFailed() {
+    this.data.retryFailedOutbox()
+    void this.syncNow()
   }
 
   async syncNow() {
@@ -79,16 +88,25 @@ export class SyncStore {
   }
 
   private async push() {
-    const operations = [...this.data.outbox]
+    // одна «ядовитая» операция не должна стопорить всю очередь:
+    // ошибка учитывается на операции, остальные продолжают отправляться
+    const operations = this.data.outbox.filter((o) => !o.failed)
+    let firstError: unknown = null
     for (const operation of operations) {
       const current = this.data.findEntity(operation.clientId, operation.type)
       const effectiveOperation = operation.payload && current
         ? { ...operation, payload: { ...operation.payload, version: current.version } }
         : operation
-      const changed = await api.applyOperation(effectiveOperation)
-      if (changed.length) this.data.mergeRemote(changed)
-      this.data.removeFromOutbox(operation.id)
+      try {
+        const changed = await api.applyOperation(effectiveOperation)
+        if (changed.length) this.data.mergeRemote(changed)
+        this.data.removeFromOutbox(operation.id)
+      } catch (error) {
+        this.data.markOutboxAttempt(operation.id)
+        firstError ??= error
+      }
     }
+    if (firstError) throw firstError
   }
 
   private async pull() {

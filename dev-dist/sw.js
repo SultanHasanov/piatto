@@ -78,11 +78,12 @@ define(['./workbox-edf91e0a'], (function (workbox) { 'use strict';
    */
   workbox.precacheAndRoute([{
     "url": "index.html",
-    "revision": "0.k34qqqbblj8"
+    "revision": "0.8h90a58nf"
   }], {});
   workbox.cleanupOutdatedCaches();
   workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
-    allowlist: [/^\/$/]
+    allowlist: [/^\/$/],
+    denylist: [/\.apk$/i]
   }));
   workbox.registerRoute(/^https:\/\/images\.unsplash\.com\//i, new workbox.NetworkFirst({
     "cacheName": "piatto-images-v2",
@@ -95,6 +96,16 @@ define(['./workbox-edf91e0a'], (function (workbox) { 'use strict';
     })]
   }), 'GET');
   workbox.registerRoute(/^https:\/\/[^/]+\.supabase\.co\/storage\/v1\/object\//i, new workbox.NetworkFirst({
+    "cacheName": "piatto-images-v2",
+    "networkTimeoutSeconds": 5,
+    plugins: [new workbox.CacheableResponsePlugin({
+      statuses: [200]
+    }), new workbox.ExpirationPlugin({
+      maxEntries: 250,
+      maxAgeSeconds: 7776000
+    })]
+  }), 'GET');
+  workbox.registerRoute(/\/supabase-proxy\/storage\/v1\/object\//i, new workbox.NetworkFirst({
     "cacheName": "piatto-images-v2",
     "networkTimeoutSeconds": 5,
     plugins: [new workbox.CacheableResponsePlugin({

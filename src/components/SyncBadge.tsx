@@ -1,5 +1,5 @@
 import { observer } from 'mobx-react-lite'
-import { Badge, Button, Tooltip } from 'antd'
+import { Badge, Button } from 'antd'
 import { Cloud, RefreshCw, WifiOff, TriangleAlert } from 'lucide-react'
 import { useStore } from '../stores/context'
 
@@ -30,13 +30,17 @@ export const SyncBadge = observer(function SyncBadge() {
     color = 'processing'
   }
 
+  if (sync.failedCount > 0) {
+    icon = <TriangleAlert size={16} />
+    text = `Не отправлено: ${sync.failedCount}`
+    color = 'error'
+  }
+
   return (
-    <Tooltip title={text}>
-      <Button type="text" onClick={() => sync.syncNow()} className="sync-badge">
-        <Badge status={color} />
-        {icon}
-        <span className="sync-badge-text">{pending > 0 ? `${pending} в очереди` : text}</span>
-      </Button>
-    </Tooltip>
+    <Button type="text" onClick={() => sync.failedCount > 0 ? sync.retryFailed() : sync.syncNow()} className="sync-badge" aria-label={text}>
+      <Badge status={color} />
+      {icon}
+      <span className="sync-badge-text">{sync.failedCount > 0 ? text : pending > 0 ? `${pending} в очереди` : text}</span>
+    </Button>
   )
 })

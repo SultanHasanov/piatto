@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Modal, Form, Input, InputNumber, ColorPicker, Button, Popconfirm, Upload, message, Alert, Image } from 'antd'
+import { Modal, Form, Input, ColorPicker, Button, Popconfirm, Upload, message, Alert, Image } from 'antd'
 import { Trash2, Upload as UploadIcon } from 'lucide-react'
 import { useStore } from '../stores/context'
 import type { Category } from '../types'
@@ -7,6 +7,7 @@ import { CATEGORY_PALETTE } from '../constants'
 import { api } from '../api/client'
 import { cacheImage } from '../utils/imageCache'
 import { useOnlineStatus } from '../utils/useOnlineStatus'
+import { TerminalNumericInput } from './NumericKeypad'
 
 interface Props {
   category: Category | null
@@ -82,7 +83,15 @@ export function CategoryEditModal({ category, open, onClose }: Props) {
       centered
       footer={[
         category && (
-          <Popconfirm key="delete" title="Удалить категорию?" onConfirm={handleDelete}>
+          <Popconfirm
+            key="delete"
+            title="Удалить категорию?"
+            description={(() => {
+              const count = data.products.filter((p) => p.categoryId === category.clientId).length
+              return count > 0 ? `В категории ${count} товар(ов) — они останутся без категории и будут видны в «Все»` : undefined
+            })()}
+            onConfirm={handleDelete}
+          >
             <Button danger icon={<Trash2 size={14} />} style={{ float: 'left' }}>
               Удалить
             </Button>
@@ -101,7 +110,7 @@ export function CategoryEditModal({ category, open, onClose }: Props) {
           <Input />
         </Form.Item>
         <Form.Item name="sort" label="Порядок" rules={[{ required: true }]}>
-          <InputNumber min={0} style={{ width: '100%' }} />
+          <TerminalNumericInput mode="integer" />
         </Form.Item>
         <Form.Item name="color" label="Цвет">
           <ColorPicker presets={[{ label: 'Палитра', colors: CATEGORY_PALETTE }]} />

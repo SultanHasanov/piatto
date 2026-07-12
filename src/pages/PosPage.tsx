@@ -11,7 +11,7 @@ import { CategoryTile } from '../components/CategoryTile'
 import { ProductTile } from '../components/ProductTile'
 import { ReceiptPanel } from '../components/ReceiptPanel'
 import { ModifierModal } from '../components/ModifierModal'
-import { PaymentModal } from '../components/PaymentModal'
+import { PaymentModal, type PaymentResult } from '../components/PaymentModal'
 import { CategoryEditModal } from '../components/CategoryEditModal'
 import { ProductEditModal } from '../components/ProductEditModal'
 import { ParkedCartsModal } from '../components/ParkedCartsModal'
@@ -19,7 +19,7 @@ import type { Category, OrderTypeConfig, Product } from '../types'
 
 export const PosPage = observer(function PosPage() {
   const { data, cart } = useStore()
-  const { printReceipt } = usePrint()
+  const { printReceipt,printKitchen } = usePrint()
   const isMobile = useIsMobile()
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [search, setSearch] = useState('')
@@ -71,6 +71,7 @@ export const PosPage = observer(function PosPage() {
       message.warning('Товар отключён')
       return
     }
+    if (!data.activeShift) { message.warning('Сначала откройте смену'); return }
     const groups = data.modifierGroups.filter((g) => product.modifierGroupIds.includes(g.clientId))
     if (groups.length > 0) {
       setModifierProduct(product)
@@ -86,7 +87,8 @@ export const PosPage = observer(function PosPage() {
     setModifierProduct(null)
   }
 
-  function handlePay(method: string, orderType: OrderTypeConfig) {
+  function handlePay(result: PaymentResult, orderType: OrderTypeConfig) {
+    if(!data.activeShift){message.error('Смена закрыта. Откройте смену перед продажей');setPayOpen(false);return}
     const items = cart.lines.map((l) => ({
       productClientId: l.productClientId,
       name: l.name,
@@ -98,7 +100,15 @@ export const PosPage = observer(function PosPage() {
     const order = data.checkoutOrder({
       items,
       total: cart.total + orderType.surcharge,
-      payment: method,
+      subtotal: cart.subtotal,
+      discountPercent: cart.discountPercent,
+      discountAmount: cart.discountAmount,
+      payments: result.payments,
+      payment: result.payments.length>1?'Смешанная':result.payments[0].method,
+      receivedCash:result.receivedCash,
+      change:result.change,
+      tableName:cart.tableName||undefined,
+      guestCount:cart.guestCount,
       orderType: orderType.id,
       orderTypeName: orderType.name,
       orderTypeSurcharge: orderType.surcharge,
@@ -111,6 +121,7 @@ export const PosPage = observer(function PosPage() {
     message.success('Оплачено')
     if (data.settings.playSoundOnPay) playOrderPaidSound()
     if (data.settings.printReceiptAfterPay) printReceipt(order)
+    if(data.settings.printKitchenAfterPay) printKitchen(order)
   }
 
   const modifierGroupsForProduct = modifierProduct

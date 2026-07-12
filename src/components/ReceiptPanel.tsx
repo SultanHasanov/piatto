@@ -1,19 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
 import { observer } from 'mobx-react-lite'
-import { Button, Empty, Alert } from 'antd'
-import { Trash2, Plus, Minus } from 'lucide-react'
+import { Button, Empty, Alert, Input, Modal } from 'antd'
+import { Trash2, Plus, Minus, Percent, Users } from 'lucide-react'
 import { useStore } from '../stores/context'
 import { formatMoney } from '../utils/format'
 import type { CartLine } from '../types'
+import { TerminalNumericInput } from './NumericKeypad'
 
 interface Props {
   onPay: () => void
 }
 
 export const ReceiptPanel = observer(function ReceiptPanel({ onPay }: Props) {
-  const { cart } = useStore()
+  const { cart,data } = useStore()
   const [removed, setRemoved] = useState<{ line: CartLine; index: number } | null>(null)
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
+  const [discountOpen,setDiscountOpen]=useState(false),[tableOpen,setTableOpen]=useState(false)
+  const [discount,setDiscount]=useState<number|null>(0),[table,setTable]=useState(''),[guests,setGuests]=useState<number|null>(1)
   const expandedLineRef = useRef<HTMLDivElement | null>(null)
 
   function toggleExpanded(index: number) {
@@ -128,17 +131,22 @@ export const ReceiptPanel = observer(function ReceiptPanel({ onPay }: Props) {
           ))
         )}
       </div>
+      {cart.lines.length>0&&<div className="receipt-tools"><Button icon={<Percent size={17}/>} onClick={()=>{setDiscount(cart.discountPercent);setDiscountOpen(true)}}>{cart.discountPercent?`Скидка ${cart.discountPercent}%`:'Скидка'}</Button><Button icon={<Users size={17}/>} onClick={()=>{setTable(cart.tableName);setGuests(cart.guestCount);setTableOpen(true)}}>{cart.tableName||'Стол / гости'}</Button></div>}
+      {cart.discountAmount>0&&<div className="receipt-discount"><span>Скидка {cart.discountPercent}%</span><strong>−{formatMoney(cart.discountAmount)}</strong></div>}
       <Button
         type="primary"
         size="large"
         block
-        disabled={cart.lines.length === 0}
+        disabled={cart.lines.length === 0||!data.activeShift}
         onClick={onPay}
         className="pay-button"
       >
         <span>К оплате</span>
         <span>{formatMoney(cart.total)}</span>
       </Button>
+      {!data.activeShift&&cart.lines.length>0&&<Alert type="warning" banner message="Для оплаты откройте смену"/>}
+      <Modal title="Скидка на чек" open={discountOpen} onCancel={()=>setDiscountOpen(false)} onOk={()=>{cart.setDiscount(discount??0);setDiscountOpen(false)}} okText="Применить" centered><TerminalNumericInput mode="money" max={100} addonAfter="%" value={discount} onChange={v=>setDiscount(v===null?null:Number(v))} autoFocus/></Modal>
+      <Modal title="Стол и гости" open={tableOpen} onCancel={()=>setTableOpen(false)} onOk={()=>{cart.setTable(table,guests??1);setTableOpen(false)}} okText="Сохранить" centered><label className="order-edit-field"><span>Название или номер стола</span><Input value={table} onChange={e=>setTable(e.target.value)} placeholder="Например, Стол 5"/></label><label className="order-edit-field"><span>Количество гостей</span><TerminalNumericInput mode="integer" value={guests} onChange={v=>setGuests(v===null?null:Number(v))}/></label></Modal>
     </div>
   )
 })

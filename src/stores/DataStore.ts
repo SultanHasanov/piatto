@@ -185,6 +185,15 @@ export class DataStore {
     const idx = this.categories.findIndex((c) => c.clientId === clientId)
     if (idx === -1) return
     const [item] = this.categories.splice(idx, 1)
+    // товары не удаляем — переводим в «без категории», чтобы они не потерялись
+    const now = new Date().toISOString()
+    this.products.forEach((p) => {
+      if (p.categoryId === clientId) {
+        p.categoryId = ''
+        p.updatedAt = now
+        this.enqueue('update', p)
+      }
+    })
     this.enqueue('delete', item)
     this.commit()
   }
@@ -210,8 +219,13 @@ export class DataStore {
     const idx = this.modifierGroups.findIndex((g) => g.clientId === clientId)
     if (idx === -1) return
     const [item] = this.modifierGroups.splice(idx, 1)
+    const now = new Date().toISOString()
     this.products.forEach((p) => {
-      p.modifierGroupIds = p.modifierGroupIds.filter((id) => id !== clientId)
+      if (p.modifierGroupIds.includes(clientId)) {
+        p.modifierGroupIds = p.modifierGroupIds.filter((id) => id !== clientId)
+        p.updatedAt = now
+        this.enqueue('update', p)
+      }
     })
     this.enqueue('delete', item)
     this.commit()
@@ -253,6 +267,7 @@ export class DataStore {
 
   // ---------- Orders ----------
   checkoutOrder(data: Omit<Order, 'clientId' | 'type' | 'updatedAt' | 'number'>): Order {
+    if (!this.activeShift) throw new Error('Смена закрыта — продажа невозможна')
     const number = this.settings.nextOrderNumber
     const entity: Order = { ...data, clientId: uuid(), type: 'order', number, updatedAt: new Date().toISOString() }
     this.orders.push(entity)
@@ -260,7 +275,7 @@ export class DataStore {
     this.settings.updatedAt = new Date().toISOString()
     entity.items.forEach((line) => {
       const product = this.products.find((item) => item.clientId === line.productClientId)
-      if (product?.stock !== null && product) {
+      if (product && typeof product.stock === 'number') {
         product.stock -= line.qty
         product.updatedAt = entity.updatedAt
       }
@@ -310,11 +325,13 @@ export class DataStore {
     let refundAmount = 0
     const nextItems: OrderItem[] = []
 
+    const itemsSubtotal=order.items.reduce((sum,line)=>sum+line.total,0)
+    const discountFactor=itemsSubtotal>0?Math.max(0,(order.total-(order.orderTypeSurcharge??0))/itemsSubtotal):1
     order.items.forEach((line, index) => {
       const qtyToReturn = Math.min(returnQty.get(index) ?? 0, line.qty)
       if (qtyToReturn > 0) {
         const unitPrice = line.basePrice + line.mods.reduce((s, m) => s + m.priceDelta, 0)
-        const sum = unitPrice * qtyToReturn
+        const sum = unitPrice * qtyToReturn * discountFactor
         refundedItems.push({ name: line.name, qty: qtyToReturn, sum })
         refundAmount += sum
 
@@ -331,7 +348,10 @@ export class DataStore {
     })
 
     order.items = nextItems
-    order.total = calculateOrderTotal(nextItems, order.orderTypeSurcharge ?? 0)
+    const nextSubtotal=nextItems.reduce((sum,item)=>sum+item.total,0)
+    const nextDiscount=Math.round(nextSubtotal*(order.discountPercent??0))/100
+    order.subtotal=nextSubtotal;order.discountAmount=nextDiscount
+    order.total = Math.max(0,calculateOrderTotal(nextItems, order.orderTypeSurcharge ?? 0)-nextDiscount)
     order.refunds = [...(order.refunds ?? []), { ts: now, amount: refundAmount, items: refundedItems }]
     order.refundedAt = now
     order.updatedAt = now
@@ -385,7 +405,10 @@ export class DataStore {
     }
 
     order.items = items
-    order.total = calculateOrderTotal(items, order.orderTypeSurcharge ?? 0)
+    const subtotal=items.reduce((sum,item)=>sum+item.total,0)
+    const discount=Math.round(subtotal*(order.discountPercent??0))/100
+    order.subtotal=subtotal;order.discountAmount=discount
+    order.total = Math.max(0,calculateOrderTotal(items, order.orderTypeSurcharge ?? 0)-discount)
     order.updatedAt = now
     this.enqueueDomain('editOrder', order)
     this.commit()
@@ -404,6 +427,8 @@ export class DataStore {
   }
 
   openShift(openingCash: number): Shift {
+    const existing = this.activeShift
+    if (existing) return existing
     const shift: Shift = {
       clientId: uuid(),
       type: 'shift',
@@ -419,14 +444,17 @@ export class DataStore {
     return shift
   }
 
-  addCashMovement(kind: 'in' | 'out', amount: number, note?: string) {
+  /** Возвращает false, если движение отклонено (нет смены, сумма некорректна или изъятие больше расчётной кассы). */
+  addCashMovement(kind: 'in' | 'out', amount: number, note?: string): boolean {
     const shift = this.activeShift
-    if (!shift || amount <= 0) return
+    if (!shift || amount <= 0) return false
+    if (kind === 'out' && amount > this.shiftSummary(shift).expectedCash) return false
     shift.cashMovements.push({ id: uuid(), ts: new Date().toISOString(), kind, amount, note })
     shift.updatedAt = new Date().toISOString()
     this.persistShifts()
     this.enqueue('update', shift)
     this.commit()
+    return true
   }
 
   shiftSummary(shift: Shift): ShiftSummary {
@@ -447,6 +475,20 @@ export class DataStore {
   }
 
   // ---------- Outbox / sync support ----------
+  /** Отмечает неудачную попытку отправки; после MAX_OP_ATTEMPTS операция помечается failed и перестаёт блокировать очередь. */
+  markOutboxAttempt(opId: string, maxAttempts = 5) {
+    const op = this.outbox.find((o) => o.id === opId)
+    if (!op) return
+    op.attempts = (op.attempts ?? 0) + 1
+    if (op.attempts >= maxAttempts) op.failed = true
+    this.persist()
+  }
+
+  retryFailedOutbox() {
+    this.outbox.forEach((o) => { if (o.failed) { o.failed = false; o.attempts = 0 } })
+    this.persist()
+  }
+
   removeFromOutbox(opId: string) {
     this.outbox = this.outbox.filter((o) => o.id !== opId)
     this.commit()

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Modal, Form, Input, InputNumber, Select, Switch, Button, Popconfirm, Space, Upload, message, Alert, Image } from 'antd'
+import { Modal, Form, Input, Select, Switch, Button, Popconfirm, Space, Upload, message, Alert, Image } from 'antd'
 import { Trash2, Upload as UploadIcon } from 'lucide-react'
 import { useStore } from '../stores/context'
 import type { Product } from '../types'
 import { api } from '../api/client'
 import { cacheImage } from '../utils/imageCache'
 import { useOnlineStatus } from '../utils/useOnlineStatus'
+import { TerminalNumericInput } from './NumericKeypad'
 
 interface Props {
   product: Product | null
@@ -119,7 +120,7 @@ export function ProductEditModal({ product, open, onClose, defaultCategoryId }: 
           <Select options={data.categories.map((c) => ({ value: c.clientId, label: c.name }))} />
         </Form.Item>
         <Form.Item name="price" label="Цена" rules={[{ required: true }]}>
-          <InputNumber min={0} style={{ width: '100%' }} addonAfter="₽" />
+          <TerminalNumericInput mode="money" addonAfter="₽" />
         </Form.Item>
         <Space size="large" style={{ display: 'flex' }}>
           <Form.Item name="trackStock" label="Учитывать остаток" valuePropName="checked">
@@ -131,7 +132,7 @@ export function ProductEditModal({ product, open, onClose, defaultCategoryId }: 
         </Space>
         {trackStock && (
           <Form.Item name="stock" label="Остаток">
-            <InputNumber min={0} style={{ width: '100%' }} />
+            <TerminalNumericInput mode="integer" />
           </Form.Item>
         )}
         <Form.Item name="modifierGroupIds" label="Группы модификаторов">

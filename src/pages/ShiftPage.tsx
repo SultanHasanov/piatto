@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { observer } from 'mobx-react-lite'
-import { Button, Empty, Input, InputNumber, Modal, Table, Typography, message } from 'antd'
+import { Button, Empty, Input, Modal, Table, Typography, message } from 'antd'
 import { ArrowDownCircle, ArrowUpCircle, Printer } from 'lucide-react'
 import dayjs from 'dayjs'
 import { useStore } from '../stores/context'
 import { usePrint } from '../print/PrintContext'
 import { formatDateTime, formatMoney } from '../utils/format'
 import type { Shift } from '../types'
+import { TerminalNumericInput } from '../components/NumericKeypad'
 
 export const ShiftPage = observer(function ShiftPage() {
   const { data } = useStore()
@@ -34,7 +35,10 @@ export const ShiftPage = observer(function ShiftPage() {
 
   function handleAddMovement() {
     if (!movementModal || !movementAmount || movementAmount <= 0) return
-    data.addCashMovement(movementModal, movementAmount, movementNote || undefined)
+    if (!data.addCashMovement(movementModal, movementAmount, movementNote || undefined)) {
+      message.error('В кассе недостаточно наличных для изъятия')
+      return
+    }
     setMovementModal(null)
     setMovementAmount(null)
     setMovementNote('')
@@ -55,13 +59,11 @@ export const ShiftPage = observer(function ShiftPage() {
           <Typography.Text strong>Открыть смену</Typography.Text>
           <label className="order-edit-field">
             <span>Наличные в кассе на старте</span>
-            <InputNumber
-              min={0}
+            <TerminalNumericInput
+              mode="money"
               value={openingCashInput}
               addonAfter="₽"
-              onFocus={(event) => event.target.select()}
-              onChange={setOpeningCashInput}
-              style={{ width: '100%' }}
+              onChange={value=>setOpeningCashInput(value===null?null:Number(value))}
             />
           </label>
           <Button type="primary" size="large" onClick={handleOpenShift}>Открыть смену</Button>
@@ -154,14 +156,12 @@ export const ShiftPage = observer(function ShiftPage() {
       >
         <label className="order-edit-field" style={{ marginBottom: 12 }}>
           <span>Сумма</span>
-          <InputNumber
-            min={0}
+          <TerminalNumericInput
+            mode="money"
             autoFocus
             value={movementAmount}
             addonAfter="₽"
-            onFocus={(event) => event.target.select()}
-            onChange={setMovementAmount}
-            style={{ width: '100%' }}
+            onChange={value=>setMovementAmount(value===null?null:Number(value))}
           />
         </label>
         <label className="order-edit-field">
@@ -185,14 +185,12 @@ export const ShiftPage = observer(function ShiftPage() {
         <Typography.Paragraph>Ожидается в кассе: <strong>{formatMoney(summary!.expectedCash)}</strong></Typography.Paragraph>
         <label className="order-edit-field">
           <span>Фактически наличных в кассе</span>
-          <InputNumber
-            min={0}
+          <TerminalNumericInput
+            mode="money"
             autoFocus
             value={actualCashInput}
             addonAfter="₽"
-            onFocus={(event) => event.target.select()}
-            onChange={setActualCashInput}
-            style={{ width: '100%' }}
+            onChange={value=>setActualCashInput(value===null?null:Number(value))}
           />
         </label>
         {actualCashInput !== null && actualCashInput !== summary!.expectedCash && (

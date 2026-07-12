@@ -86,4 +86,12 @@ describe('shift summary', () => {
     expect(summary.ordersCount).toBe(1)
     expect(summary.revenue).toBe(500)
   })
+
+  it('splits mixed payments and counts only the cash part in the drawer',()=>{
+    const mixed=order('paid',1000,{payment:'Смешанная',payments:[{method:'Наличные',amount:400},{method:'Карта',amount:600}],ts:inShift(1)})
+    const summary=calculateShiftSummary([mixed],100,[],shiftStart,shiftEnd)
+    expect(summary.cashSalesTotal).toBe(400)
+    expect(summary.expectedCash).toBe(500)
+    expect(summary.byPayment).toEqual(expect.arrayContaining([expect.objectContaining({payment:'Наличные',total:400}),expect.objectContaining({payment:'Карта',total:600})]))
+  })
 })

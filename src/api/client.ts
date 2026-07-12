@@ -28,10 +28,10 @@ function requireClient() {
 export const api = {
   configured: isSupabaseConfigured,
 
-  async createDevicePairing(deviceId: string, adminPin: string) {
-    const { data, error } = await requireClient().rpc('create_device_pairing', { p_shop_id: supabaseShopId, p_device_id: deviceId, p_admin_pin: adminPin })
+  async createDevicePairing(deviceId: string, adminPin: string, deviceName: string) {
+    const { data, error } = await requireClient().rpc('create_device_pairing', { p_shop_id: supabaseShopId, p_device_id: deviceId, p_admin_pin: adminPin, p_device_name: deviceName })
     if (error) throw error
-    return data as { id:string; token:string; code:string; expiresAt:string }
+    return data as { id:string; token:string; code:string; expiresAt:string; deviceName:string }
   },
 
   async listDevices(deviceId: string, adminPin: string) {

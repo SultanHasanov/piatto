@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { observer } from 'mobx-react-lite'
-import { Alert, Typography, Form, Input, InputNumber, Button, Popconfirm, Progress, QRCode, Space, Switch, Tag, message } from 'antd'
+import { Alert, Typography, Form, Input, Button, Popconfirm, Progress, QRCode, Space, Switch, Tag, message } from 'antd'
 import { Download, RefreshCw, Upload } from 'lucide-react'
 import dayjs from 'dayjs'
 import { useStore } from '../stores/context'
 import type { SyncStatus } from '../types'
+import { TerminalNumericInput } from '../components/NumericKeypad'
 import { api } from '../api/client'
 import { formatBytes } from '../utils/format'
 
@@ -28,6 +29,22 @@ export const SettingsPage = observer(function SettingsPage() {
   const [usage, setUsage] = useState<{ storageBytes: number; dbBytes: number } | null>(null)
   const [usageLoading, setUsageLoading] = useState(false)
   const [usageError, setUsageError] = useState<string | null>(null)
+  const [updating, setUpdating] = useState(false)
+
+  async function updateApp() {
+    setUpdating(true)
+    try {
+      // registerType: 'autoUpdate' — новый service worker активируется сам,
+      // нужно лишь запросить проверку и перезагрузить страницу
+      const registration = await navigator.serviceWorker?.getRegistration()
+      await registration?.update()
+      // даём новому SW секунду на установку/активацию, затем перезапускаем
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+    } catch {
+      // офлайн или SW недоступен — просто перезагружаемся
+    }
+    location.reload()
+  }
 
   async function loadUsage() {
     setUsageLoading(true)
@@ -143,11 +160,10 @@ export const SettingsPage = observer(function SettingsPage() {
                 <Typography.Text strong>{orderType.name}</Typography.Text>
                 <label className="settings-surcharge-field">
                   <span>Доплата</span>
-                  <InputNumber
-                    min={0}
+                  <TerminalNumericInput
+                    mode="money"
                     value={orderType.surcharge}
                     addonAfter="₽"
-                    onFocus={(event) => event.target.select()}
                     onChange={(value) => updateOrderType(index, { surcharge: Math.max(0, Number(value) || 0) })}
                   />
                 </label>
@@ -169,6 +185,10 @@ export const SettingsPage = observer(function SettingsPage() {
             checked={!!data.settings.printReceiptAfterPay}
             onChange={(printReceiptAfterPay) => data.updateSettings({ printReceiptAfterPay })}
           />
+        </div>
+        <div className="settings-inline-option" style={{ maxWidth: 420 }}>
+          <Typography.Text strong>Печатать отдельный талон для кухни после оплаты</Typography.Text>
+          <Switch checked={!!data.settings.printKitchenAfterPay} onChange={(printKitchenAfterPay)=>data.updateSettings({printKitchenAfterPay})}/>
         </div>
         <div className="settings-inline-option" style={{ maxWidth: 420 }}>
           <Typography.Text strong>Звук при оформлении заказа</Typography.Text>
@@ -267,6 +287,12 @@ export const SettingsPage = observer(function SettingsPage() {
             event.target.value = ''
           }}
         />
+      </Space>
+
+      <Typography.Title level={5} style={{ marginTop: 24 }}>Обновление приложения</Typography.Title>
+      <Space direction="vertical" style={{ marginBottom: 24 }}>
+        <Typography.Text type="secondary">Проверяет новую версию и перезапускает кассу без закрытия окна. Несинхронизированные данные сохраняются локально.</Typography.Text>
+        <Button icon={<RefreshCw size={16} />} loading={updating} onClick={() => void updateApp()}>Обновить приложение</Button>
       </Space>
 
       <Typography.Title level={5} style={{ marginTop: 24 }}>Приложение для АТОЛ SIGMA</Typography.Title>

@@ -24,6 +24,7 @@ export class AuthStore {
   securityEnabled = false
   setupRequired = false
   deviceActive = false
+  serviceUnavailable = false
   error: string | null = null
   readonly configured = isSupabaseConfigured
   deviceId = localStorage.getItem(DEVICE_KEY)
@@ -32,25 +33,44 @@ export class AuthStore {
     makeAutoObservable(this)
     if (!supabase) { this.loading=false; return }
     void this.initialize()
-    window.addEventListener('online', () => void this.validateDevice())
+    window.addEventListener('online', () => void this.retryInitialize())
   }
 
   get authenticated() { return !this.configured || (this.deviceActive && !this.locked) }
 
   private async initialize() {
+    runInAction(() => { this.loading=true; this.error=null; this.serviceUnavailable=false })
     if (!navigator.onLine && this.deviceId) {
       const { data: auth } = await supabase!.auth.getSession()
       runInAction(() => { this.session=auth.session; this.securityEnabled=true; this.deviceActive=true; this.loading=false })
       return
     }
-    const [{ data: auth }, security] = await Promise.all([
+
+    const [authResult, security] = await Promise.all([
       supabase!.auth.getSession(),
       supabase!.rpc('has_device_security', { p_shop_id: supabaseShopId }),
     ])
-    runInAction(() => { this.session=auth.session; this.securityEnabled=Boolean(security.data); this.setupRequired=!security.data && !!auth.session })
+    if (authResult.error || security.error) {
+      runInAction(() => {
+        this.session=authResult.data.session
+        this.setupRequired=false
+        this.serviceUnavailable=true
+        this.error='Не удалось проверить состояние кассы. Привязка устройства не изменена.'
+        this.loading=false
+      })
+      return
+    }
+
+    runInAction(() => {
+      this.session=authResult.data.session
+      this.securityEnabled=security.data === true
+      this.setupRequired=security.data === false && !!authResult.data.session
+    })
     if (this.securityEnabled && this.session && this.deviceId) await this.validateDevice()
     runInAction(() => { this.loading=false })
   }
+
+  async retryInitialize() { await this.initialize() }
 
   async legacySignIn(email: string, pin: string) {
     this.loading=true; this.error=null
@@ -68,23 +88,31 @@ export class AuthStore {
 
   async validateDevice() {
     if (!navigator.onLine || !this.session || !this.deviceId) return
-    const { data } = await supabase!.rpc('verify_device',{p_shop_id:supabaseShopId,p_device_id:this.deviceId})
-    runInAction(() => { this.deviceActive=Boolean(data?.active); if (!data?.active) { this.locked=true; this.error='Это устройство отвязано' } })
+    const { data, error } = await supabase!.rpc('verify_device',{p_shop_id:supabaseShopId,p_device_id:this.deviceId})
+    if (error) {
+      runInAction(() => { this.serviceUnavailable=true; this.error='Не удалось проверить привязку устройства. Повторите попытку.' })
+      return
+    }
+    runInAction(() => { this.serviceUnavailable=false; this.deviceActive=Boolean(data?.active); if (!data?.active) { this.locked=true; this.error='Это устройство отвязано' } })
   }
 
   async unlock(pin: string) {
     this.loading=true; this.error=null
     let valid=false
     if (!navigator.onLine) valid=await checkLocalPin(pin).catch(()=>false)
-    else if (this.deviceId) { const { data }=await supabase!.rpc('unlock_device',{p_shop_id:supabaseShopId,p_device_id:this.deviceId,p_pin:pin}); valid=Boolean(data); if(valid) await rememberPin(pin) }
-    runInAction(()=>{this.locked=!valid; this.deviceActive=valid||this.deviceActive; this.error=valid?null:'Неверный PIN-код'; this.loading=false})
+    else if (this.deviceId) {
+      const { data,error }=await supabase!.rpc('unlock_device',{p_shop_id:supabaseShopId,p_device_id:this.deviceId,p_pin:pin})
+      if(error){runInAction(()=>{this.serviceUnavailable=true;this.error='Сервер временно недоступен. Привязка устройства сохранена.';this.loading=false});return false}
+      valid=Boolean(data);if(valid)await rememberPin(pin)
+    }
+    runInAction(()=>{this.locked=!valid;this.deviceActive=valid||this.deviceActive;this.error=valid?null:'Неверный PIN-код';this.loading=false})
     return valid
   }
 
-  async pair(name: string, tokenOrCode: string) {
+  async pair(tokenOrCode: string) {
     this.loading=true; this.error=null
     const isCode=/^\d{6}$/.test(tokenOrCode)
-    const { data, error }=await supabase!.functions.invoke('redeem-device',{body:{shopId:supabaseShopId,name,...(isCode?{code:tokenOrCode}:{token:tokenOrCode})}})
+    const { data, error }=await supabase!.functions.invoke('redeem-device',{body:{shopId:supabaseShopId,...(isCode?{code:tokenOrCode}:{token:tokenOrCode})}})
     let errorMessage=data?.error as string|undefined
     if(error && 'context' in error && error.context instanceof Response) {
       const details=await error.context.clone().json().catch(()=>null) as {error?:string}|null

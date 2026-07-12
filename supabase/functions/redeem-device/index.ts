@@ -7,8 +7,8 @@ Deno.serve(async (request) => {
   let stage = 'validation'
   let createdUserId: string | null = null
   try {
-    const { shopId, token, code, name } = await request.json()
-    if (!shopId || (!token && !code) || !String(name || '').trim()) throw new Error('Заполните данные устройства')
+    const { shopId, token, code } = await request.json()
+    if (!shopId || (!token && !code)) throw new Error('Заполните код привязки')
     const url = Deno.env.get('SUPABASE_URL')!
     const serviceKey = Deno.env.get('PIATTO_SERVICE_ROLE_KEY')
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
@@ -37,7 +37,7 @@ Deno.serve(async (request) => {
     if (!userId) throw new Error('Supabase Auth не вернул идентификатор устройства')
     createdUserId = userId
     stage = 'device registration'
-    const { data: deviceId, error: deviceError } = await publicClient.rpc('register_paired_device', { p_pairing_id: pairing.id, p_user_id: userId, p_name: String(name).trim(), p_token: token ?? null, p_code: code ? String(code) : null })
+    const { data: deviceId, error: deviceError } = await publicClient.rpc('register_paired_device', { p_pairing_id: pairing.id, p_user_id: userId, p_token: token ?? null, p_code: code ? String(code) : null })
     if (deviceError) throw deviceError
 
     stage = 'device sign in'

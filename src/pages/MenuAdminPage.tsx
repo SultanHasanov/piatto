@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { observer } from 'mobx-react-lite'
-import { Segmented, Button, Modal, Form, Input, InputNumber, Switch, Space, Popconfirm, Typography } from 'antd'
+import { Segmented, Button, Modal, Form, Input, Switch, Space, Popconfirm, Typography } from 'antd'
 import { Plus, Trash2 } from 'lucide-react'
 import { useStore } from '../stores/context'
 import { CategoryEditModal } from '../components/CategoryEditModal'
 import { ProductEditModal } from '../components/ProductEditModal'
+import { TerminalNumericInput } from '../components/NumericKeypad'
 import type { Category, ModifierGroup, ModifierOption, Product } from '../types'
 import { formatMoney } from '../utils/format'
 import { ReliableImage } from '../components/ReliableImage'
@@ -222,7 +223,7 @@ const ModifiersTab = observer(function ModifiersTab() {
                       <Input placeholder="Название опции" />
                     </Form.Item>
                     <Form.Item name={[field.name, 'priceDelta']} noStyle>
-                      <InputNumber placeholder="Доплата" addonAfter="₽" />
+                      <TerminalNumericInput mode="signed" placeholder="Доплата" addonAfter="₽" />
                     </Form.Item>
                     <Button danger icon={<Trash2 size={14} />} onClick={() => remove(field.name)} />
                   </Space>
